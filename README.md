@@ -58,3 +58,22 @@ Questions should be saved by the user and backed up, but they don't need the ext
 
 The only precaution (although the possibility to exploit it is very narrow) is to not keep source code and questions on the same online cloud storage, as that will give out to a potential attacker most of the pieces of the puzzle, although answers **MUST** never be available online.
 Running the software on an offline machine guarantees that the private key will not be accessible once generated.
+
+## Development Environment Setup
+The project uses Docker with a minimal gcc image. Once built, we need to build and install the secp256k1 library.
+
+- Build a development Docker image environment:
+
+    `docker build -t doomsday-img .`
+
+- Run the image:
+
+    `docker run -it --rm  --mount type=bind,source=${PWD},target=/doomsdaywallet doomsday-img`
+
+- Build and install secp256k1:
+
+    `chmod +x setup.sh && ./setup.sh`
+
+- Export library path:
+
+    `export LD_LIBRARY_PATH=/usr/local/lib/:$LD_LIBRARY_PATH`

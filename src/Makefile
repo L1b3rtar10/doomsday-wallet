@@ -17,11 +17,9 @@ SRCS := $(wildcard *.cpp $(addsuffix /*.cpp,$(SUBDIRS)))
 OBJS := $(patsubst %.cpp,%.o,$(SRCS))
 
 %.o: %.cpp
-	@echo "\n\nHere is > $(SUBMODULE_INCLUDE)\n\n"
 	$(CC) -c -o $@ $< $(CFLAGS)
 
 $(TARGET): $(OBJS)
-	@echo "$(OBJS)";
 	$(CC) $(CFLAGS) $(OBJS) -o $@ $(LDFLAGS)
 
 .PHONY: clean
