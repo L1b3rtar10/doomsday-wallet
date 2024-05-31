@@ -1,5 +1,3 @@
-# https://www.cs.colby.edu/maxwell/courses/tutorials/maketutor/
-# C++ is object-oriented C (has classes)
 TARGET = doomsdaywallet
 CC = g++
 
@@ -8,23 +6,42 @@ export SUBMODULE_INCLUDE
 
 LDFLAGS = -lsecp256k1 -lstdc++
 
-CFLAGS = -g -Wall -Wextra -std=c++17 -lstdc++ -I$(SUBMODULE_INCLUDE)
+# Common flags
+CFLAGS = -Wall -Wextra -std=c++17 -I$(SUBMODULE_INCLUDE)
+
+# Debug flags
+DEBUG_CFLAGS =
 
 # The list of your directories under the root directory:
 SUBDIRS := utils crypto
 
-SRCS := $(wildcard *.cpp $(addsuffix /*.cpp,$(SUBDIRS)))
-OBJS := $(patsubst %.cpp,%.o,$(SRCS))
+# Ensure the build directory exists
+$(shell mkdir -p build $(addprefix build/,$(SUBDIRS)))
 
-%.o: %.cpp
-	$(CC) -c -o $@ $< $(CFLAGS)
+# Recursively find all .cpp files
+SRCS := $(wildcard *.cpp $(addsuffix /*.cpp,$(SUBDIRS)))
+
+# Transform source file paths to object file paths in the build directory
+OBJS := $(patsubst %.cpp,build/%.o,$(SRCS))
+
+# Ensure corresponding build subdirectories exist
+$(shell mkdir -p $(addprefix build/,$(SUBDIRS)))
+
+# Target for object files
+build/%.o: %.cpp
+	@mkdir -p $(dir $@)
+	$(CC) -c -o $@ $< $(CFLAGS) $(DEBUG_CFLAGS)
+
+# Targets for normal and debug builds
+all: $(TARGET)
+
+debug: DEBUG_CFLAGS += -g
+debug: clean $(TARGET)
 
 $(TARGET): $(OBJS)
-	$(CC) $(CFLAGS) $(OBJS) -o $@ $(LDFLAGS)
+	$(CC) $(CFLAGS) $(DEBUG_CFLAGS) $(OBJS) -o $@ $(LDFLAGS)
 
 .PHONY: clean
 clean:
-		@$(foreach dir,$(SUBDIRS),$(MAKE) -C$(dir) clean;)
-		rm -rf build/
-		rm -rf *.o
-		rm -rf $(TARGET)
+	rm -rf build/
+	rm -rf $(TARGET)

@@ -48,7 +48,7 @@ At the end of the initialisation, the software provides some basic features to:
 
 ### Safety considerations
 As a matter of fact, the user's master key does not exist in the real world and it is not available to anyone, so can't be used by an attacker.
-Safety is achieved by splitting the key generation process into 3 different components, one of which is something only the user has access to (answers), so, again, not available to any external attacker.
+Safety is achieved by splitting the key generation process into 3 different components, one of which is something only the user has knowledge of (answers), so, again, not available to any external attacker.
 
 A 256 bit **OTP** is embedded into the source code, but it doesn't need the extra level of safety that a BIP39 seed would.
 
@@ -58,6 +58,16 @@ Questions should be saved by the user and backed up, but they don't need the ext
 
 The only precaution (although the possibility to exploit it is very narrow) is to not keep source code and questions on the same online cloud storage, as that will give out to a potential attacker most of the pieces of the puzzle, although answers **MUST** never be available online.
 Running the software on an offline machine guarantees that the private key will not be accessible once generated.
+
+## Build
+For normal builds, run:
+
+    make
+
+For debug builds (gdb enabled), run:
+
+    make debug
+
 
 ## Development Environment Setup
 The project uses Docker with a minimal gcc image. Once built, we need to build and install the secp256k1 library.
