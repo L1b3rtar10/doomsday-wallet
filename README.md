@@ -6,16 +6,16 @@ A safe, future-proof command-line wallet with minimal requirements:
 Doomsday-wallet uses a secret fragmentation approach.
 By applying Bitcoin's principle **trust no one** the user becomes the only responsible for their Bitcoin, avoiding the use of third-party hardware wallets or seed backup, that can be lost or used by an attacker to steal funds.
 
-## Rationale
+### Rationale
 All hardware wallets comply with BIP39 in order to allow the user to recover their funds. This approach comes with some drawbacks:
 1. Users end up with a word list that is not mnemonic, and must be backed up in order to recover funds.
 2. Seed backup becomes a weakness, as anyone with access to the seed can generate the master key with access to all user's funds.
 3. Access to funds depends on having a hardware wallet, that requires some type of configuration, relies on third-party software and compatibility between a host machine and the hardware itself.
 
-## Software and hardware requirements
+### Software and hardware requirements
 The source code is purposedly written in C++ to ensure it can be built on multiple platforms with the least amount of libraries (same libraries as Bitcoin core) and very little hardware requirements.
 
-## Master key fragmentation
+### Master key fragmentation
 Doomsday wallet defines an algorithm to generate a 256 bit master key by recombining 3 different fragments (shards), that can only be recombined together by the user to restore their master key.
 These fragments are:
 1. Questions
@@ -46,13 +46,15 @@ At the end of the initialisation, the software provides some basic features to:
 - Generate transactions
 - Sign transactions
 
-### Safety considerations
-As a matter of fact, the user's master key does not exist in the real world and it is not available to anyone, so can't be used by an attacker.
+## Safety considerations
+As a matter of fact, the user's master key does not exist in the real world in the form of backup tool or wordlist, and it is not available to anyone, so can't be used by an attacker.
 Safety is achieved by splitting the key generation process into 3 different components, one of which is something only the user has knowledge of (answers), so, again, not available to any external attacker.
 
 A 256 bit **OTP** is embedded into the source code, but it doesn't need the extra level of safety that a BIP39 seed would.
 
 Questions should be saved by the user and backed up, but they don't need the extra level of safety that a BIP39 seed would.
+
+**The private key DOES exixts in the computer's memory when the user completes the input sequence** so it is important to run the program on an offline computer, for maximum safety.
 
 ### Answers should not be saved anywhere.
 
@@ -69,7 +71,9 @@ For debug builds (gdb enabled), run:
     make debug
 
 
-## Development Environment Setup
+## Development
+
+### Development Environment Setup
 The project uses Docker with a minimal gcc image. Once built, we need to build and install the secp256k1 library.
 
 - Build a development Docker image environment:
@@ -87,3 +91,8 @@ The project uses Docker with a minimal gcc image. Once built, we need to build a
 - Export library path:
 
     `export LD_LIBRARY_PATH=/usr/local/lib/:$LD_LIBRARY_PATH`
+
+### Unit tests
+* Must have boost installed [Boost download](https://www.boost.org/users/download/#live)
+* In test folder run make, an executable file is generated
+* Run executable to run tests

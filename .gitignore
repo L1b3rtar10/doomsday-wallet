@@ -33,3 +33,4 @@
 
 # Local settings
 .vscode
+*.dSYM
