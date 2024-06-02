@@ -1,0 +1,9 @@
+# Example input file. Use this file as an input for the executable
+
+# Add as many lines as you want, the more the safer your key will be
+
+# Comments are allowed, although not recommended.
+
+Where did you meet your first girlfriend?
+What is the address of your first workplace?
+How many siblings do you have?

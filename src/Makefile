@@ -4,7 +4,7 @@ CC = g++
 SUBMODULE_INCLUDE = $(CURDIR)/../secp256k1/include
 export SUBMODULE_INCLUDE
 
-LDFLAGS = -lsecp256k1 -lstdc++
+LDFLAGS = -lsecp256k1 -lstdc++ -lssl -lcrypto
 
 # Common flags
 CFLAGS = -Wall -Wextra -std=c++17 -I$(SUBMODULE_INCLUDE)
@@ -13,7 +13,7 @@ CFLAGS = -Wall -Wextra -std=c++17 -I$(SUBMODULE_INCLUDE)
 DEBUG_CFLAGS =
 
 # The list of your directories under the root directory:
-SUBDIRS := utils crypto
+SUBDIRS := utils crypto input features
 
 # Ensure the build directory exists
 $(shell mkdir -p build $(addprefix build/,$(SUBDIRS)))
