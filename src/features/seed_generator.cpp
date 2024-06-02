@@ -46,14 +46,14 @@ void SeedGenerator::start(uint8_t* entropy)
             size_t len = 0;
             inputMgr->secureInput(input, len);
 
-            uint8_t derived_key[KEY_SIZE];
+            uint8_t derivedKey[KEY_SIZE];
             if (!PKCS5_PBKDF2_HMAC(input, sizeof(input), currentKey, KEY_SIZE, PBKDF2_ITERATIONS, \
-                                    EVP_sha512(), KEY_SIZE, derived_key)) {
+                                    EVP_sha512(), KEY_SIZE, derivedKey)) {
                 std::cerr << "Error: PBKDF2 derivation failed\n";
                 exit(EXIT_FAILURE);
             }
 
-            memcpy(currentKey, derived_key, KEY_SIZE);
+            memcpy(currentKey, derivedKey, KEY_SIZE);
         }
     }
     fclose(fp);
