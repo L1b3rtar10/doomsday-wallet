@@ -1,8 +1,9 @@
 #include <iostream>
 #include <cassert>
 #include "input/input_mgr.h"
-
+#include "crypto/byteutils.h"
 #include "features/seed_generator.h"
+#include "features/descriptors.h"
 
 using namespace std;
 
@@ -12,49 +13,72 @@ using namespace std;
 0xdc, 0x37, 0x0a, 0x24, 0x20, 0xf0, 0xa9, 0x1e, 0xeb, 0x09, 0x43, 0x59, 0x30, 0xa4, 0xcd, 0x65, 0x18,\
 0xd2, 0x0c, 0x71, 0xfa, 0x87, 0x29, 0x96, 0x1d, 0x73, 0x2a, 0xc9, 0x43, 0x5b, 0xce, 0xed, 0x00, 0x1b, 0x25 }
 
-#define EXIT_CODE '9'
+#define EXIT_CODE '5'
 
 #define OPTIONS_MENU_NO_SEED "\n\n+++ Choose an option +++\n\
 ----- 1. Initialise master key\n"
 
-#define OPTIONS_MENU "\n\n+++ Choose an option +++\n\
------ 1. Initialise master key - OK\n\
------ 2. Create safe wallet\n\
------ 3. Send amount to address\n\
------ 4. Decode transaction\n\
------ 5. Select default tx fee\n\
------ 6. Generate new address\n"
 
-void printMenu(bool seedInitialised) {
+void createMenu(bool seedInitialised, optional<DescriptorMgr> descriptorMgr) {
+    char descriptor[MAX_DESCRIPTOR_LENGTH] = {'\0'};
+
     cout << "\033[2J\033[1;1H";
-    cout << (seedInitialised?OPTIONS_MENU:OPTIONS_MENU_NO_SEED) << "----- " << EXIT_CODE << ". Exit\n\n+++ Selection: ";
+    cout << "* * * * * * * * * * * * * * *\n";
+    cout << "*     Doomsday Wallet       *\n";
+    cout << "* * * * * * * * * * * * * * *\n";
+    cout << "\n";
+    cout << "-- 1. Initialise master key" << (seedInitialised?" OK":"") << endl;
+
+    if (descriptorMgr.has_value() && descriptorMgr->getAccountKey().has_value()) {
+        char descriptorOutput[MAX_DESCRIPTOR_LENGTH] = {'\0'};
+        descriptorMgr->getAccountKey()->getDescriptor(descriptorOutput);
+        cout << "-- 2. Reference account keys: " << descriptorOutput << endl;
+    } else {
+        cout << "-- 2. Generate account keys" << endl;
+    }
+    cout << "-- 3. Export public key descriptors\n";
+    cout << "-- 4. Export private key descriptor\n";
+    cout << "-- 5. Exit\n";
+    cout << "Please select an option: ";
+}
+
+void printMenu() {
+    cout << "\033[2J\033[1;1H";
+    cout << OPTIONS_MENU_NO_SEED << "----- " << EXIT_CODE << ". Exit\n\n+++ Selection: ";
     return;
 }
 
 int main(int argc, char **argv) {
     uint8_t randomSeed[] = RANDOM_SEED;
-    static_assert(sizeof(randomSeed) == KEY_SIZE, "Random seed provided should be 64 bytes long");
-    uint8_t masterSeed[KEY_SIZE] = {'\0'};
+    static_assert(sizeof(randomSeed) == ENTROPY_SIZE, "RANDOM_SEED provided MUST be 64 bytes long");
     
-    optional<SeedGenerator> seedGenerator = SeedGenerator::Make(argv[1], randomSeed);
+    optional<SeedGenerator> seedGenerator = SeedGenerator::Make(argv[1]);
+    optional<DescriptorMgr> descriptorMgr = nullopt;
 
-    cout << "* * * * * * * * * * * * * * * *\n";
-    cout << "*  Welcome to Doomsday Wallet *\n";
-    cout << "* * * * * * * * * * * * * * * *\n";
-
-    printMenu(false);
+    printMenu();
+    
     char choice;
+    scanf(" %c", &choice);
 
-    while ((choice = getchar()) != EXIT_CODE) {
+    while (choice != EXIT_CODE) {
         switch (choice) {
-            case '1': {
+            case '1':
                 if (seedGenerator.has_value()) {
-                    seedGenerator->start(masterSeed);
+                    seedGenerator->start(randomSeed);
+                    descriptorMgr = DescriptorMgr(seedGenerator->getSeed(), ENTROPY_SIZE);
+                    getchar();
                 }
                 break;
-            }
+            case '2':
+                if (descriptorMgr.has_value()) {
+                    descriptorMgr->start();
+                } else {
+                    cout << "Master key must be initialised first.";
+                }
+                break;
         }
-        printMenu(seedGenerator->seedIsInitialised());
+        createMenu(seedGenerator->seedIsInitialised(), descriptorMgr);
+        scanf(" %c", &choice);
     }
 
     return 0;

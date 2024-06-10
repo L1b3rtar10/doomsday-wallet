@@ -1,9 +1,9 @@
-#include "key.h"
+#include <assert.h>
 
 #include "secp256k1.h"
 #include "secp256k1_ecdh.h"
 
-#include "byteutils.h"
+#include "key.h"
 #include "byteutils.h"
 #include "base58.h"
 #include "sha-256.h"
@@ -11,18 +11,21 @@
 #include "hmac_sha512.h"
 #include "byteutils.h"
 
-#include <cstdlib>
-#include <assert.h>
+using namespace std;
 
-
-Key::Key() {
-    //printf("\nInit 3");
+Key Key::MakeMasterKey(uint8_t* masterSeed, uint8_t seedLength)
+{
+    const uint8_t hashKey[] = MASTER_HASH_KEY;
+    Key masterKey = Key(masterSeed, hashKey, seedLength, sizeof(hashKey), BIP_44);
+    return masterKey;
 }
+
+Key::Key(){}
 
 Key::Key(const uint8_t* data, const uint8_t* key, const size_t dataLength, const size_t keyLength,\
             const uint32_t index, const uint8_t depth, const uint8_t* parentFingerprint, const Keytype keyType,\
-            bool isMaster, const char* parentDescriptor, const uint8_t descriptorLength) {
-
+            bool isMaster, const char* parentDescriptor, const uint8_t descriptorLength)
+{
     _keyType = keyType;
     _index = index;
     _depth = depth;
@@ -37,7 +40,8 @@ Key::Key(const uint8_t* data, const uint8_t* key, const size_t dataLength, const
 
 Key::Key(const uint8_t* data, const uint8_t* key, const size_t dataLength, const size_t keyLength, const Keytype keyType) : \
         Key(data, key, dataLength, keyLength, 0, 0, new uint8_t[4]{0x00, 0x00, 0x00, 0x00}, keyType, true, \
-            new char[1]{'\0'}, 0) {
+            new char[1]{'\0'}, 0)
+{
     
     /* Before we can call actual API functions, we need to create a "context". */
     ctx = secp256k1_context_create(SECP256K1_CONTEXT_NONE);
@@ -59,11 +63,13 @@ Key::Key(const uint8_t* data, const uint8_t* key, const size_t dataLength, const
     assert(secp256k1_ec_pubkey_create(ctx, &pubkey, keyMaterial));
 }
 
-secp256k1_pubkey& Key::getPubKey() {
+secp256k1_pubkey& Key::getPubKey()
+{
     return pubkey;
 }
 
-void Key::getPoint(const uint8_t* privateKey, uint8_t* outKey, size_t* size) {
+void Key::getPoint(const uint8_t* privateKey, uint8_t* outKey, size_t* size)
+{
     secp256k1_pubkey tmp_pubKey;
     secp256k1_pubkey out_pubKey;
 
@@ -80,14 +86,14 @@ void Key::getPoint(const uint8_t* privateKey, uint8_t* outKey, size_t* size) {
     secp256k1_ec_pubkey_serialize(ctx, outKey, size, &out_pubKey, SECP256K1_EC_COMPRESSED);
 }
 
-void Key::sumPrivKey(uint8_t* privKey, const uint8_t* number) {
+void Key::sumPrivKey(uint8_t* privKey, const uint8_t* number)
+{
     secp256k1_ec_seckey_tweak_add(ctx, privKey, number);
 }
 
-
 // Derives extended private child keys for normal and hardened children
-void Key::deriveChildKey(const uint32_t index, Key& outKey) {
-    
+void Key::deriveChildKey(const uint32_t index, Key& outKey)
+{
     uint8_t data[37] = {0x00}; // parent_pbkey(33 bytes) | index(4 bytes)
 
     uint8_t index_bytes[4] = {0x00}; 
@@ -120,54 +126,33 @@ void Key::deriveChildKey(const uint32_t index, Key& outKey) {
     
     uint8_t parent_fingerprint[20] = {0x00};
     calculateKeyFingerprint(compressed_pubkey, parent_fingerprint);
+
+    Keytype childKeyType = _keyType;
+
+    if (_depth == 0) {
+        switch (index) {
+            case MIN_HARDENED_CHILD_INDEX + BIP_49:
+                childKeyType = BIP_49;
+                break;
+            case MIN_HARDENED_CHILD_INDEX + BIP_84:
+                childKeyType = BIP_84;
+                break;
+            case MIN_HARDENED_CHILD_INDEX + BIP_86:
+                childKeyType = BIP_86;
+                break;
+            default:
+                childKeyType = BIP_44;
+                break;
+        }
+    }
     
     outKey = Key(child_priv_key, child_chaincode, sizeof(child_priv_key), sizeof(child_chaincode), index,\
-                 _depth + 1, parent_fingerprint, _keyType, false, _descriptor, _descriptorLength);
+                 _depth + 1, parent_fingerprint, childKeyType, false, _descriptor, _descriptorLength);
     outKey.initializePublicKey();
 }
 
-void Key::deriveChildXPubKey(const uint32_t index) {
-    assert(index < MIN_HARDENED_CHILD_INDEX);
-    uint8_t data[37] = {0x00}; // parent_pbkey(33 bytes) | index(4 bytes)
-
-    uint8_t index_bytes[4] = {0x00}; 
-    uint32ToBytes(index, index_bytes);
-
-    uint8_t compressed_pubkey[33] = {0x00};
-    size_t size = 33;
-    secp256k1_ec_pubkey_serialize(ctx, compressed_pubkey, &size, &pubkey, SECP256K1_EC_COMPRESSED);
-    assert(size == sizeof(compressed_pubkey));
-
-    uint8_t vout[64] = {0x00};
-    
-    memcpy(&data[0], compressed_pubkey, 33);
-    memcpy(&data[33], index_bytes, 4);
-    CHMAC_SHA512{&keyMaterial[32], 32}.Write(data, 37).Finalize(vout);
-
-    uint8_t child_chaincode[32] = {0x00};
-    memcpy(child_chaincode, &vout[32], 32);
-
-    uint8_t child_priv_key[32] = {0x00};
-    memcpy(child_priv_key, vout, 32);
-
-    uint8_t child_pub_key[33] = {0x00};
-    
-    getPoint(child_priv_key, child_pub_key, &size);
-    printf("\nChild pubkey is\n");
-    print_string(child_pub_key, size);
-    
-    /*
-    uint8_t parent_fingerprint[20] = {0x00};
-    calculateKeyFingerprint(compressed_pubkey, parent_fingerprint);
-    
-    outKey = Key(child_priv_key, child_chaincode, sizeof(child_priv_key), sizeof(child_chaincode), index,\
-                 _depth + 1, parent_fingerprint, _keyType, false, _descriptor, _descriptorLength);
-    outKey.initializePublicKey();
-    */
-}
-
-void Key::exportXprivKey(char* serialisedKey, size_t& serialisedLength) {
-                        
+const string Key::exportXprivKey()
+{                
     uint8_t PREFIX_LENGTH = 13;
     uint8_t version[4] = {0x00};
     getVersionCode(version, true);
@@ -198,25 +183,21 @@ void Key::exportXprivKey(char* serialisedKey, size_t& serialisedLength) {
 
     EncodeBase58(input, 82, xpriv);
 
-    size_t i = 0;
-
-    for (i = 0; (i < SERIALIZED_KEY_LENGTH) && (xpriv[i] != '\0'); i++) {
-        serialisedKey[i] = xpriv[i];
-    }
-
-    serialisedKey[i] = '\0';
-    serialisedLength = i + 1;
+    string s(xpriv);
+    return s;
 }
 
 // Calculates HASH160
-void Key::calculateParentFingerprint(const uint8_t* parent_pbkey, uint8_t* parent_fingerprint) {
+void Key::calculateParentFingerprint(const uint8_t* parent_pbkey, uint8_t* parent_fingerprint)
+{
     unsigned char sha256Hash[SIZE_OF_SHA_256_HASH] = {0x00};
 
     calc_sha_256(sha256Hash, parent_pbkey, 33);
     CRIPEMD160{}.Write(sha256Hash, SIZE_OF_SHA_256_HASH).Finalize(parent_fingerprint);
 }
 
-void Key::debug() {
+void Key::debug()
+{
     printf("\nDEBUG!!!");
     printf("\nDebugging type > %d", _keyType);
     printf("\nDebugging key\n index > %d", _index);
@@ -236,14 +217,21 @@ void Key::debug() {
     printf("\n");
 }
 
-void Key::initializePublicKey() {
+void Key::generateBipChainKey(Keytype keyType, Key chainKey)
+{
+    deriveChildKey(keyType, chainKey);
+}
+
+void Key::initializePublicKey()
+{
     ctx = secp256k1_context_create(SECP256K1_CONTEXT_NONE);
     assert(secp256k1_context_randomize(ctx, randomize));
     /* Public key creation using a valid context with a verified secret key should never fail */
     assert(secp256k1_ec_pubkey_create(ctx, &pubkey, keyMaterial));
 }
 
-void Key::exportXpubKey(char* serialisedKey, size_t &serialisedLength) {
+void Key::exportXpubKey(char* serialisedKey, size_t &serialisedLength)
+{
     uint8_t PREFIX_LENGTH = 13;
     uint8_t version[4] = {0x00};
     getVersionCode(version, false);
@@ -295,29 +283,39 @@ void Key::exportXpubKey(char* serialisedKey, size_t &serialisedLength) {
 /*** Version code should be different, but importdescriptor won't work with zpriv and zpub keys ***/
 /*** This method will return keys in the format xpriv/xpub for BIP84 keys ***/
 /*** Uncomment to have the real BIP84 format ***/
-void Key::getVersionCode(uint8_t* versionCode, bool isPrivate) {
-
+void Key::getVersionCode(uint8_t* versionCode, bool isPrivate)
+{
     if (isPrivate) {
-        //switch (_keyType) {
-        //    case BIP_44: {
+        switch (_keyType) {
+            case BIP_44: {
                 uint8_t version[4] = VERSION_BIP44_PRIV;
                 memcpy(versionCode, version, 4);
-        //    } break;
+            } break;
 
-        /*    case BIP_84: {
+            case BIP_49: {
+                uint8_t version[4] = VERSION_BIP49_PRIV;
+                memcpy(versionCode, version, 4);
+            } break;
+
+            case BIP_84: {
                 uint8_t version[4] = VERSION_BIP84_PRIV;
                 memcpy(versionCode, version, 4);
             } break;
 
             default:
                 break;
-        }*/
+        }
     } else {
-        //switch (_keyType) {
-        //    case BIP_44: {
+        switch (_keyType) {
+            case BIP_44: {
                 uint8_t version[4] = VERSION_BIP44_PUB;
                 memcpy(versionCode, version, 4);
-        /*    } break;
+            } break;
+
+            case BIP_49: {
+                uint8_t version[4] = VERSION_BIP49_PUB;
+                memcpy(versionCode, version, 4);
+            } break;
 
             case BIP_84: {
                 uint8_t version[4] = VERSION_BIP84_PUB;
@@ -326,31 +324,32 @@ void Key::getVersionCode(uint8_t* versionCode, bool isPrivate) {
 
             default:
                 break;
-        }*/    
+        }   
     }
 }
 
 // https://github.com/bitcoin/bips/blob/master/bip-0044.mediawiki#examples
 // 84h/ -> https://en.bitcoin.it/wiki/BIP_0084
-void Key::exportAccountKeys(Key& accountKey, uint32_t accountNumber) {
+void Key::exportAccountKeys(Key& accountKey, uint32_t accountNumber)
+{
     Key purposeKey = Key();
     deriveChildKey(MIN_HARDENED_CHILD_INDEX + _keyType, purposeKey);
 
     Key coinTypeKey = Key(); //0h/ https://github.com/bitcoin/bips/blob/master/bip-0044.mediawiki#examples
     purposeKey.deriveChildKey(MIN_HARDENED_CHILD_INDEX, coinTypeKey);
-
     coinTypeKey.deriveChildKey(MIN_HARDENED_CHILD_INDEX + accountNumber, accountKey);
 }
 
-void Key::exportAddressKeys(Key& addressKey, AddressType addressType) {
+void Key::exportAddressKeys(Key& addressKey, AddressType addressType)
+{
     Key key = Key();
     deriveChildKey(addressType, addressKey);
 }
 
-void Key::buildKeyDescriptor(const char* parentDescriptor, const size_t length) {
-
+void Key::buildKeyDescriptor(const char* parentDescriptor, const size_t length)
+{
     char indexString[10] = {'\0'};
-
+    
     if (_depth <= 1) {
         _descriptor[0] = '[';
         _descriptorLength++;
@@ -363,48 +362,54 @@ void Key::buildKeyDescriptor(const char* parentDescriptor, const size_t length) 
         memcpy(&_descriptor[_descriptorLength], parentDescriptor, length);
         _descriptorLength += length;
     }
-    
+
     _descriptor[_descriptorLength++] = '/';
-    
+
     size_t indexLength = 0;
     uint32_t indexNormalised = 0;
-    
+
     if (_depth > 0) {
         if (_index >= MIN_HARDENED_CHILD_INDEX) {
             indexNormalised = _index - MIN_HARDENED_CHILD_INDEX;
         }
         uint32ToDecimalString(indexNormalised, indexString, indexLength);
-        memcpy(&_descriptor[_descriptorLength], indexString, indexLength);
-        _descriptorLength+=indexLength;
+        memcpy(&_descriptor[_descriptorLength], indexString, indexLength - 1); // Omit the final \0
+        _descriptorLength+=(indexLength - 1);
         if (_index >= MIN_HARDENED_CHILD_INDEX) {
             _descriptor[_descriptorLength++] = 'h';
         }
     }
-
-    char desc[MAX_DESCRIPTOR_LENGTH] = {'\0'};
-    size_t keyLength = 0;
 }
 
-void Key::exportDescriptor(char* descriptor, size_t &len, AddressType addressType) {
-    char SUFFIX[5] = "/0/*";
+void Key::exportDescriptor(char* descriptor, AddressType addressType)
+{
+    char SUFFIX[] = "/0/*";
 
     memcpy(descriptor, _descriptor, _descriptorLength);
+    descriptor[_descriptorLength++] = ']';
 
     uint8_t index = _descriptorLength;
-    descriptor[index++] = ']';
 
     size_t keyLength = 0;
-    exportXprivKey(&descriptor[index], keyLength);
+    exportXpubKey(&descriptor[index], keyLength);
     index += keyLength;
 
     SUFFIX[1] = addressTypeToChar(addressType);
     memcpy(&descriptor[index], SUFFIX, sizeof(SUFFIX));
     index += sizeof(SUFFIX);
-    len = index;
+}
+
+void Key::getDescriptor(char* descriptor)
+{
+    char output[MAX_DESCRIPTOR_LENGTH] = {'\0'};
+    memcpy(output, _descriptor, _descriptorLength);
+    output[_descriptorLength] = ']';
+    memcpy(descriptor, output, _descriptorLength + 1);
 }
 
 /* Cleanses memory to prevent leaking sensitive info. Won't be optimized out. */
-void Key::secureErase(void *ptr, size_t len) {
+void Key::secureErase(void *ptr, size_t len)
+{
 #if defined(_MSC_VER)
     /* SecureZeroMemory is guaranteed not to be optimized out by MSVC. */
     SecureZeroMemory(ptr, len);
@@ -428,18 +433,21 @@ void Key::secureErase(void *ptr, size_t len) {
 #endif
 }
 
-void Key::erase() {
+void Key::erase()
+{
     secp256k1_context_destroy(ctx);
     secureErase(keyMaterial, sizeof(keyMaterial));
     secureErase(_parentFingerprint, sizeof(_parentFingerprint));
     secureErase(&pubkey, sizeof(pubkey));
 }
 
-char Key::addressTypeToChar(AddressType value) {
+char Key::addressTypeToChar(AddressType value)
+{
     return (value == RECEIVING) ? '0' : '1';
 }
 
-void Key::getAddress(char* address) {
+void Key::getAddress(char* address)
+{
     uint8_t compressed_pubkey[33] = {0x00};
     size_t len = 33;
     secp256k1_ec_pubkey_serialize(ctx, compressed_pubkey, &len, &pubkey, SECP256K1_EC_COMPRESSED);

@@ -4,10 +4,16 @@
 #include <string.h>
 #include <iostream>
 #include <unistd.h>
-#include <cstring>
+
+#include "../../secp256k1/include/secp256k1.h"
+#include "../../secp256k1/include/secp256k1_ecdh.h"
 
 #include "../../src/crypto/sha-256.h"
 #include "../../src/crypto/sha-256.cpp"
+#include "../../src/crypto/sha512.h"
+#include "../../src/crypto/sha512.cpp"
+#include "../../src/crypto/hmac_sha512.h"
+#include "../../src/crypto/hmac_sha512.cpp"
 #include "../../src/crypto/ripemd160.h"
 #include "../../src/crypto/ripemd160.cpp"
 #include "../../src/crypto/bech32.h"
@@ -16,6 +22,13 @@
 #include "../../src/crypto/base58.cpp"
 #include "../../src/crypto/byteutils.h"
 #include "../../src/crypto/byteutils.cpp"
+#include "../../src/crypto/key.h"
+#include "../../src/crypto/key.cpp"
+#include "../../src/features/descriptors.h"
+#include "../../src/features/descriptors.cpp"
+
+// TEST VECTORS FROM https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki#test-vectors
+#define TEST_VECTOR_1 {0x00,0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,0x09,0x0a,0x0b,0x0c,0x0d,0x0e,0x0f}    
 
 #define BOOST_TEST_MODULE Main
 #define PARSER_TESTS crypto_tests
@@ -369,6 +382,153 @@ BOOST_AUTO_TEST_CASE( encodeWIFKey ) {
     for (size_t i = 0; i < sizeof(TEST_KEY); i++) {
         BOOST_CHECK(TEST_KEY[i] == wifKey[i]);
     }
+}
+
+BOOST_AUTO_TEST_CASE( BIP44 ) {
+    const char* xPubKeyTest1 = "xpub661MyMwAqRbcFtXgS5sYJABqqG9YLmC4Q1Rdap9gSE8NqtwybGhePY2gZ29ESFjqJoCu1Rupje8YtGqsefD265TMg7usUDFdp6W1EGMcet8";
+    const char* xPrivKeyTest1 = "xprv9s21ZrQH143K3QTDL4LXw2F7HEK3wJUD2nW2nRk4stbPy6cq3jPPqjiChkVvvNKmPGJxWUtg6LnF5kejMRNNU3TGtRBeJgk33yuGBxrMPHi";
+    const char* xPubKeyTestAccount1 = "xpub68Gmy5EdvgibQVfPdqkBBCHxA5htiqg55crXYuXoQRKfDBFA1WEjWgP6LHhwBZeNK1VTsfTFUHCdrfp1bgwQ9xv5ski8PX9rL2dZXvgGDnw";
+    const char* xPrivKeyTestAccount1 = "xprv9uHRZZhk6KAJC1avXpDAp4MDc3sQKNxDiPvvkX8Br5ngLNv1TxvUxt4cV1rGL5hj6KCesnDYUhd7oWgT11eZG7XnxHrnYeSvkzY7d2bhkJ7";
+    const char* xPubKeyTestChain1 = "xpub6ASuArnXKPbfEwhqN6e3mwBcDTgzisQN1wXN9BJcM47sSikHjJf3UFHKkNAWbWMiGj7Wf5uMash7SyYq527Hqck2AxYysAA7xmALppuCkwQ";
+    const char* xPrivKeyTestChain1 = "xprv9wTYmMFdV23N2TdNG573QoEsfRrWKQgWeibmLntzniatZvR9BmLnvSxqu53Kw1UmYPxLgboyZQaXwTCg8MSY3H2EU4pWcQDnRnrVA1xe8fs";
+
+    uint8_t testVector1[] = TEST_VECTOR_1;
+    
+    Key masterKey = Key::MakeMasterKey(testVector1, sizeof(testVector1));
+
+    char descriptor[MAX_DESCRIPTOR_LENGTH] = {'\0'}; 
+    masterKey.getDescriptor(descriptor);
+
+    char xPubKey[MAX_DESCRIPTOR_LENGTH] = {'\0'};
+    size_t keyLength = 0;
+    masterKey.exportXpubKey(xPubKey, keyLength);
+
+    string xPrivKey = masterKey.exportXprivKey();
+
+    BOOST_CHECK(strcmp(xPubKeyTest1, xPubKey) == 0);
+    BOOST_CHECK(xPrivKeyTest1 == xPrivKey);
+
+    Key accountKey;
+    masterKey.deriveChildKey(MIN_HARDENED_CHILD_INDEX, accountKey);
+    memset(xPubKey, '\0', MAX_DESCRIPTOR_LENGTH);
+
+    accountKey.exportXpubKey(xPubKey, keyLength);
+    xPrivKey = accountKey.exportXprivKey();
+
+    BOOST_CHECK(strcmp(xPubKeyTestAccount1, xPubKey) == 0);
+    BOOST_CHECK(xPrivKeyTestAccount1 == xPrivKey);
+
+    Key chainKey;
+    accountKey.deriveChildKey(1, chainKey);
+    memset(xPubKey, '\0', MAX_DESCRIPTOR_LENGTH);
+    
+    chainKey.exportXpubKey(xPubKey, keyLength);
+    xPrivKey = chainKey.exportXprivKey();
+
+    BOOST_CHECK(strcmp(xPubKeyTestChain1, xPubKey) == 0);
+    BOOST_CHECK(xPrivKeyTestChain1 == xPrivKey);
+}
+
+BOOST_AUTO_TEST_CASE( BIP84 ) {
+    string xPrivAccount0 = "zprvAdG4iTXWBoARxkkzNpNh8r6Qag3irQB8PzEMkAFeTRXxHpbF9z4QgEvBRmfvqWvGp42t42nvgGpNgYSJA9iefm1yYNZKEm7z6qUWCroSQnE";
+    string xPrivReceivingAddress0 = "0330d54fd0dd420a6e5f8d3624f5f3482cae350f79d5f0753bf5beef9c2d91af3c";
+
+    uint8_t masterSeed[] = {
+        0x5e, 0xb0, 0x0b, 0xbd, 0xdc, 0xf0, 0x69, 0x08,
+        0x48, 0x89, 0xa8, 0xab, 0x91, 0x55, 0x56, 0x81,
+        0x65, 0xf5, 0xc4, 0x53, 0xcc, 0xb8, 0x5e, 0x70,
+        0x81, 0x1a, 0xae, 0xd6, 0xf6, 0xda, 0x5f, 0xc1,
+        0x9a, 0x5a, 0xc4, 0x0b, 0x38, 0x9c, 0xd3, 0x70,
+        0xd0, 0x86, 0x20, 0x6d, 0xec, 0x8a, 0xa6, 0xc4,
+        0x3d, 0xae, 0xa6, 0x69, 0x0f, 0x20, 0xad, 0x3d,
+        0x8d, 0x48, 0xb2, 0xd2, 0xce, 0x9e, 0x38, 0xe4
+    };
+
+    Key masterKey = Key::MakeMasterKey(masterSeed, sizeof(masterSeed));
+
+    Key bip84PurposeKey;
+    masterKey.deriveChildKey(MIN_HARDENED_CHILD_INDEX + 84, bip84PurposeKey);
+    Key coinTypeKey;
+    bip84PurposeKey.deriveChildKey(MIN_HARDENED_CHILD_INDEX, coinTypeKey);
+    Key accountKey;
+    coinTypeKey.deriveChildKey(MIN_HARDENED_CHILD_INDEX, accountKey);
+    Key receivingKey;
+    accountKey.deriveChildKey(0, receivingKey);
+    Key addressKey;
+    receivingKey.deriveChildKey(0, addressKey);
+
+    string xPrivKey = accountKey.exportXprivKey();
+
+    BOOST_CHECK(xPrivKey == xPrivAccount0);
+}
+
+BOOST_AUTO_TEST_CASE( BIP49 ) {
+    string xPrivAccount0 = "yprvAHwhK6RbpuS3dgCYHM5jc2ZvEKd7Bi61u9FVhYMpgMSuZS613T1xxQeKTffhrHY79hZ5PsskBjcc6C2V7DrnsMsNaGDaWev3GLRQRgV7hxF";
+
+    uint8_t masterSeed[] = {
+        0x5e, 0xb0, 0x0b, 0xbd, 0xdc, 0xf0, 0x69, 0x08,
+        0x48, 0x89, 0xa8, 0xab, 0x91, 0x55, 0x56, 0x81,
+        0x65, 0xf5, 0xc4, 0x53, 0xcc, 0xb8, 0x5e, 0x70,
+        0x81, 0x1a, 0xae, 0xd6, 0xf6, 0xda, 0x5f, 0xc1,
+        0x9a, 0x5a, 0xc4, 0x0b, 0x38, 0x9c, 0xd3, 0x70,
+        0xd0, 0x86, 0x20, 0x6d, 0xec, 0x8a, 0xa6, 0xc4,
+        0x3d, 0xae, 0xa6, 0x69, 0x0f, 0x20, 0xad, 0x3d,
+        0x8d, 0x48, 0xb2, 0xd2, 0xce, 0x9e, 0x38, 0xe4
+    };
+
+    Key masterKey = Key::MakeMasterKey(masterSeed, sizeof(masterSeed));
+    Key bip49PurposeKey;
+    masterKey.deriveChildKey(MIN_HARDENED_CHILD_INDEX + 49, bip49PurposeKey);
+    Key coinTypeKey;
+    bip49PurposeKey.deriveChildKey(MIN_HARDENED_CHILD_INDEX, coinTypeKey);
+    Key accountKey;
+    coinTypeKey.deriveChildKey(MIN_HARDENED_CHILD_INDEX, accountKey);
+    Key receivingKey;
+    accountKey.deriveChildKey(0, receivingKey);
+    Key addressKey;
+    receivingKey.deriveChildKey(0, addressKey);
+
+    string privKey = accountKey.exportXprivKey();
+
+    BOOST_CHECK(privKey == xPrivAccount0);
+}
+
+BOOST_AUTO_TEST_CASE( calculateAddressFromSeed ) {
+    uint8_t masterSeed[] = {
+        0x5e, 0xb0, 0x0b, 0xbd, 0xdc, 0xf0, 0x69, 0x08,
+        0x48, 0x89, 0xa8, 0xab, 0x91, 0x55, 0x56, 0x81,
+        0x65, 0xf5, 0xc4, 0x53, 0xcc, 0xb8, 0x5e, 0x70,
+        0x81, 0x1a, 0xae, 0xd6, 0xf6, 0xda, 0x5f, 0xc1,
+        0x9a, 0x5a, 0xc4, 0x0b, 0x38, 0x9c, 0xd3, 0x70,
+        0xd0, 0x86, 0x20, 0x6d, 0xec, 0x8a, 0xa6, 0xc4,
+        0x3d, 0xae, 0xa6, 0x69, 0x0f, 0x20, 0xad, 0x3d,
+        0x8d, 0x48, 0xb2, 0xd2, 0xce, 0x9e, 0x38, 0xe4
+    };
+
+    Key masterKey = Key::MakeMasterKey(masterSeed, sizeof(masterSeed));
+
+    char xPubKey[MAX_DESCRIPTOR_LENGTH] = {'\0'};
+
+    string xPrivKey = masterKey.exportXprivKey();
+    char descriptor[MAX_DESCRIPTOR_LENGTH] = {'\0'};
+
+    Key purposeKey;
+    masterKey.deriveChildKey(MIN_HARDENED_CHILD_INDEX + 44, purposeKey);
+    Key coinTypeKey;
+    purposeKey.deriveChildKey(MIN_HARDENED_CHILD_INDEX, coinTypeKey);
+    Key accountKey;
+    coinTypeKey.deriveChildKey(MIN_HARDENED_CHILD_INDEX, accountKey);
+    Key receivingKey;
+    accountKey.deriveChildKey(0, receivingKey);
+    Key addressKey;
+    receivingKey.deriveChildKey(0, addressKey);
+
+    xPrivKey = accountKey.exportXprivKey();
+
+    xPrivKey = addressKey.exportXprivKey();
+    size_t keyLength = 0;
+    addressKey.exportXpubKey(xPubKey, keyLength);
+    receivingKey.exportDescriptor(descriptor, RECEIVING);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

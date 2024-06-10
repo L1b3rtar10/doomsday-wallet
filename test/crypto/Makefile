@@ -2,7 +2,7 @@
 # C++ is object-oriented C (has classes)
 TARGET = test
 CC = gcc
-CFLAGS = -g -Wall -Wextra -std=c++17 -lstdc++ -I/etc/boost/include/ -L/etc/boost/lib
+CFLAGS = -g -Wall -Wextra -std=c++17 -lstdc++ -lm -lsecp256k1 -lssl -lcrypto -I/etc/boost/include/ -L/etc/boost/lib
 
 $(TARGET):
 	$(CC) $(CFLAGS) -o $(TARGET) $(TARGET).cpp

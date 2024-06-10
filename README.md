@@ -94,5 +94,9 @@ The project uses Docker with a minimal gcc image. Once built, we need to build a
 
 ### Unit tests
 * Must have boost installed [Boost download](https://www.boost.org/users/download/#live)
-* In test folder run make, an executable file is generated
-* Run executable to run tests
+* In test folder, run: 
+    `make`
+
+### Using GDB
+- Run the program using GDB:
+    `gdb --args doomsdaywallet example.txt`

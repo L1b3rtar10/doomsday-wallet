@@ -2,9 +2,9 @@
 #define SEED_GENERATOR_H
 
 #define BUF_LEN 256
-#define KEY_SIZE 64
 
 #include <optional>
+#include "../crypto/key.h"
 
 using namespace std;
 
@@ -14,24 +14,25 @@ class SeedGenerator
     private:
 
         char* _filename;
-        uint8_t* _randomSeed;
-        bool _seedInitialised = false;
+        uint8_t _masterSeed[ENTROPY_SIZE] = {'\0'};
+        bool _seedInitialised = true;
 
-        SeedGenerator(char* filename, uint8_t* randomSeed)
+        SeedGenerator(char* filename)
         {
             _filename = filename;
-            _randomSeed = randomSeed;
         };
 
         void showPrompt();
 
     public:
 
-        static std::optional<SeedGenerator> Make(char* filename, uint8_t* randomSeed);
+        static optional<SeedGenerator> Make(char* filename);
         
-        void start(uint8_t* entropy);
+        void start(uint8_t* randomSeed);
 
         bool seedIsInitialised();
+
+        uint8_t* getSeed();
 };
 
 #endif

@@ -4,7 +4,7 @@ CC = g++
 SUBMODULE_INCLUDE = $(CURDIR)/../secp256k1/include
 export SUBMODULE_INCLUDE
 
-LDFLAGS = -lsecp256k1 -lstdc++ -lssl -lcrypto
+LDFLAGS = -lsecp256k1 -lstdc++ -lssl -lcrypto -lm
 
 # Common flags
 CFLAGS = -Wall -Wextra -std=c++17 -I$(SUBMODULE_INCLUDE)

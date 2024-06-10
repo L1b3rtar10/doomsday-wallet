@@ -30,6 +30,7 @@
 *.exe
 *.out
 *.app
+src/doomsdaywallet
 
 # Local settings
 .vscode

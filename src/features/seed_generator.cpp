@@ -8,20 +8,19 @@
 #include "../crypto/hmac_sha512.h"
 #include "../crypto/byteutils.h"
 
-#define PBKDF2_ITERATIONS 10133 // Number of PBKDF2 iterations
+#define PBKDF2_ITERATIONS 100000 // Number of PBKDF2 iterations
 
-#define INPUT_LEN 255   // Max length for each user input
+#define INPUT_LEN 64   // Max length for each user input
 
-optional<SeedGenerator> SeedGenerator::Make(char *filename, uint8_t* randomSeed)
+optional<SeedGenerator> SeedGenerator::Make(char *filename)
 {
-    return SeedGenerator(filename, randomSeed);
+    return SeedGenerator(filename);
 }
 
-void SeedGenerator::start(uint8_t* entropy)
+void SeedGenerator::start(uint8_t* randomSeed)
 {
     char buffer[BUF_LEN];
-    uint8_t currentKey[KEY_SIZE] = {0x00};
-    memcpy(currentKey, entropy, KEY_SIZE);
+    memcpy(_masterSeed, randomSeed, ENTROPY_SIZE);
 
     FILE* fp;
     fp = fopen(_filename, "r");
@@ -46,18 +45,17 @@ void SeedGenerator::start(uint8_t* entropy)
             size_t len = 0;
             inputMgr->secureInput(input, len);
 
-            uint8_t derivedKey[KEY_SIZE];
-            if (!PKCS5_PBKDF2_HMAC(input, sizeof(input), currentKey, KEY_SIZE, PBKDF2_ITERATIONS, \
-                                    EVP_sha512(), KEY_SIZE, derivedKey)) {
+            uint8_t derivedKey[ENTROPY_SIZE];
+            if (!PKCS5_PBKDF2_HMAC(input, sizeof(input), _masterSeed, ENTROPY_SIZE, PBKDF2_ITERATIONS, \
+                                    EVP_sha512(), ENTROPY_SIZE, derivedKey)) {
                 std::cerr << "Error: PBKDF2 derivation failed\n";
                 exit(EXIT_FAILURE);
             }
 
-            memcpy(currentKey, derivedKey, KEY_SIZE);
+            memcpy(_masterSeed, derivedKey, ENTROPY_SIZE);
         }
     }
     fclose(fp);
-    memcpy(entropy, currentKey, KEY_SIZE);
     _seedInitialised = true;
     cout << "\n\nSeed generated, press return to continue...\n";
 }
@@ -65,6 +63,11 @@ void SeedGenerator::start(uint8_t* entropy)
 bool SeedGenerator::seedIsInitialised()
 {
     return _seedInitialised;
+}
+
+uint8_t* SeedGenerator::getSeed()
+{
+    return _masterSeed;
 }
 
 void SeedGenerator::showPrompt()
