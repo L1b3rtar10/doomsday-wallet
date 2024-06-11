@@ -76,6 +76,14 @@ int main(int argc, char **argv) {
                     cout << "Master key must be initialised first.";
                 }
                 break;
+            case '3':
+                if (descriptorMgr.has_value()) {
+                    descriptorMgr->exportDescriptors();
+                    getchar();
+                } else {
+                    cout << "Master key must be initialised first.";
+                }
+                break;
         }
         createMenu(seedGenerator->seedIsInitialised(), descriptorMgr);
         scanf(" %c", &choice);

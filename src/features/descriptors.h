@@ -28,7 +28,7 @@ class DescriptorMgr
 
         optional<Key> getAccountKey();
 
-        void exportDescriptors(Keytype Keytype, AddressType addressType, char* descriptor);
+        void exportDescriptors();
 
 };
 

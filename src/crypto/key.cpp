@@ -287,7 +287,8 @@ void Key::getVersionCode(uint8_t* versionCode, bool isPrivate)
 {
     if (isPrivate) {
         switch (_keyType) {
-            case BIP_44: {
+            case BIP_44:
+            case BIP_86: {
                 uint8_t version[4] = VERSION_BIP44_PRIV;
                 memcpy(versionCode, version, 4);
             } break;
@@ -307,7 +308,8 @@ void Key::getVersionCode(uint8_t* versionCode, bool isPrivate)
         }
     } else {
         switch (_keyType) {
-            case BIP_44: {
+            case BIP_44:
+            case BIP_86: {
                 uint8_t version[4] = VERSION_BIP44_PUB;
                 memcpy(versionCode, version, 4);
             } break;
@@ -381,22 +383,38 @@ void Key::buildKeyDescriptor(const char* parentDescriptor, const size_t length)
     }
 }
 
-void Key::exportDescriptor(char* descriptor, AddressType addressType)
+void Key::exportDescriptor(char* descriptor)
 {
+    assert(_index <= 1);
     char SUFFIX[] = "/0/*";
 
-    memcpy(descriptor, _descriptor, _descriptorLength);
-    descriptor[_descriptorLength++] = ']';
+    SUFFIX[1] = '0' + (_index & 1);
 
-    uint8_t index = _descriptorLength;
+    memcpy(descriptor, _descriptor, _descriptorLength - 2);
+    descriptor[_descriptorLength - 2] = ']';
+
+    uint8_t index = _descriptorLength - 1;
 
     size_t keyLength = 0;
     exportXpubKey(&descriptor[index], keyLength);
-    index += keyLength;
+    index += keyLength - 1;
 
-    SUFFIX[1] = addressTypeToChar(addressType);
     memcpy(&descriptor[index], SUFFIX, sizeof(SUFFIX));
     index += sizeof(SUFFIX);
+}
+
+void Key::exportAddressDescriptor(Keytype keyType, uint32_t accountNumber, AddressType addressType, char* descriptor)
+{
+    Key purposeKey;
+    this->deriveChildKey(MIN_HARDENED_CHILD_INDEX + keyType, purposeKey);
+    Key coinTypeKey;
+    purposeKey.deriveChildKey(MIN_HARDENED_CHILD_INDEX, coinTypeKey);
+    Key accountKey;
+    coinTypeKey.deriveChildKey(MIN_HARDENED_CHILD_INDEX + accountNumber, accountKey);
+    Key addressGeneratingKey;
+    accountKey.deriveChildKey(addressType, addressGeneratingKey);
+
+    addressGeneratingKey.exportDescriptor(descriptor);
 }
 
 void Key::getDescriptor(char* descriptor)

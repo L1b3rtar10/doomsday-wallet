@@ -108,7 +108,9 @@ class Key {
 
         void getDescriptor(char* descriptor);
 
-        void exportDescriptor(char* descriptor, AddressType addressType);
+        void exportDescriptor(char* descriptor);
+
+        void exportAddressDescriptor(Keytype keyType, uint32_t accountNumber, AddressType addressType, char* descriptor);
 
         void erase();
 };

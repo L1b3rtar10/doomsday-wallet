@@ -43,19 +43,53 @@ optional<Key> DescriptorMgr::getAccountKey()
     return _accountKey;
 }
 
-void DescriptorMgr::exportDescriptors(Keytype Keytype, AddressType addressType, char* descriptor)
+void DescriptorMgr::exportDescriptors()
 {
-    if (_accountKey.has_value()) {
-        Key chainKey;
-        _accountKey->deriveChildKey(BIP_44, chainKey);
-        chainKey.exportDescriptor(descriptor, addressType);
+    char descriptor[MAX_DESCRIPTOR_LENGTH] = {'\0'};
+    showPrompt();
+    uint32_t accountNumber = getUserInput();
+
+    if (_masterKey.has_value()) {
+        _masterKey->exportAddressDescriptor(BIP_44, accountNumber, RECEIVING, descriptor);
+        cout << descriptor << endl;
+        memset(descriptor, '\0', MAX_DESCRIPTOR_LENGTH);
+
+        _masterKey->exportAddressDescriptor(BIP_44, accountNumber, CHANGE, descriptor);
+        cout << descriptor << endl;
+        memset(descriptor, '\0', MAX_DESCRIPTOR_LENGTH);
+
+         _masterKey->exportAddressDescriptor(BIP_49, accountNumber, RECEIVING, descriptor);
+        cout << descriptor << endl;
+        memset(descriptor, '\0', MAX_DESCRIPTOR_LENGTH);
+
+        _masterKey->exportAddressDescriptor(BIP_49, accountNumber, CHANGE, descriptor);
+        cout << descriptor << endl;
+        memset(descriptor, '\0', MAX_DESCRIPTOR_LENGTH);
+
+        _masterKey->exportAddressDescriptor(BIP_84, accountNumber, RECEIVING, descriptor);
+        cout << descriptor << endl;
+        memset(descriptor, '\0', MAX_DESCRIPTOR_LENGTH);
+
+        _masterKey->exportAddressDescriptor(BIP_84, accountNumber, CHANGE, descriptor);
+        cout << descriptor << endl;
+        memset(descriptor, '\0', MAX_DESCRIPTOR_LENGTH);
+
+         _masterKey->exportAddressDescriptor(BIP_86, accountNumber, RECEIVING, descriptor);
+        cout << descriptor << endl;
+        memset(descriptor, '\0', MAX_DESCRIPTOR_LENGTH);
+
+        _masterKey->exportAddressDescriptor(BIP_86, accountNumber, CHANGE, descriptor);
+        cout << descriptor << endl;
+        memset(descriptor, '\0', MAX_DESCRIPTOR_LENGTH);
     }
+
+    getchar();
 }
 
 int DescriptorMgr::getUserInput() {
     int userInput;
     while (true) {
-        std::cout << "Enter an integer value: ";
+        std::cout << "Enter account number: ";
         std::cin >> userInput;
 
         if (std::cin.fail()) {
