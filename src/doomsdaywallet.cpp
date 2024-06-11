@@ -1,7 +1,6 @@
 #include <iostream>
 #include <cassert>
-#include "input/input_mgr.h"
-#include "crypto/byteutils.h"
+
 #include "features/seed_generator.h"
 #include "features/descriptors.h"
 
@@ -19,15 +18,15 @@ using namespace std;
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  \
 }
 
-#define EXIT_CODE '5'
+#define EXIT_CODE '4'
 
-#define OPTIONS_MENU_NO_SEED "\n\n+++ Choose an option +++\n\
------ 1. Initialise master key\n"
+#define OPTIONS_MENU_NO_SEED "\n\n \
+    +++ Choose an option +++\n\
+    ----- 1. Initialise master key\n"
 
 
 void createMenu(bool seedInitialised, optional<DescriptorMgr> descriptorMgr) {
-    char descriptor[MAX_DESCRIPTOR_LENGTH] = {'\0'};
-
+    
     cout << "\033[2J\033[1;1H";
     cout << "* * * * * * * * * * * * * * *\n";
     cout << "*     Doomsday Wallet       *\n";
@@ -43,8 +42,7 @@ void createMenu(bool seedInitialised, optional<DescriptorMgr> descriptorMgr) {
         cout << "-- 2. Generate account keys" << endl;
     }
     cout << "-- 3. Export public key descriptors\n";
-    cout << "-- 4. Export private key descriptor\n";
-    cout << "-- 5. Exit\n";
+    cout << "-- 4. Exit\n";
     cout << "Please select an option: ";
 }
 
