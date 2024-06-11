@@ -17,7 +17,7 @@ optional<SeedGenerator> SeedGenerator::Make(char *filename)
     return SeedGenerator(filename);
 }
 
-void SeedGenerator::start(uint8_t* randomSeed)
+void SeedGenerator::start(const uint8_t* randomSeed)
 {
     char buffer[BUF_LEN];
     memcpy(_masterSeed, randomSeed, ENTROPY_SIZE);
