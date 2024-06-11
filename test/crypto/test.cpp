@@ -542,17 +542,19 @@ BOOST_AUTO_TEST_CASE( generateBip44AddressDescriptors ) {
         0x3d, 0xae, 0xa6, 0x69, 0x0f, 0x20, 0xad, 0x3d,
         0x8d, 0x48, 0xb2, 0xd2, 0xce, 0x9e, 0x38, 0xe4
     };
+    string xPubReceiveDescriptor = "[73c5da0a/44h/0h/0h]xpub6ELHKXNimKbxMCytPh7EdC2QXx46T9qLDJWGnTraz1H9kMMFdcduoU69wh9cxP12wDxqAAfbaESWGYt5rREsX1J8iR2TEunvzvddduAPYcY/0/*";
+    string xPubChangeDescriptor  = "[73c5da0a/44h/0h/0h]xpub6ELHKXNimKbxNg8CV7R31x98ZCPAAT2CrHnZ1ZovqMcvvjnnHmRvLtrpoAs8oBB5YghZf5vzjWURbUBqjXzN3RsEonB3LejZ8oHr3PEJnQj/1/*";
 
     Key masterKey = Key::MakeMasterKey(masterSeed, sizeof(masterSeed));
 
     char receivingDescriptor[MAX_DESCRIPTOR_LENGTH] = {'\0'};
     char changeDescriptor[MAX_DESCRIPTOR_LENGTH] = {'\0'};
 
-    masterKey.exportAddressDescriptor(BIP_44, RECEIVING, receivingDescriptor);
-    masterKey.exportAddressDescriptor(BIP_44, CHANGE, changeDescriptor);
+    masterKey.exportAddressDescriptor(BIP_44, 0, RECEIVING, receivingDescriptor);
+    masterKey.exportAddressDescriptor(BIP_44, 0, CHANGE, changeDescriptor);
 
-    cout << receivingDescriptor << endl;
-    cout << changeDescriptor << endl;
+    BOOST_CHECK(string(receivingDescriptor) == xPubReceiveDescriptor);
+    BOOST_CHECK(string(changeDescriptor) == xPubChangeDescriptor);
 }
 
 BOOST_AUTO_TEST_CASE( generateBip49AddressDescriptors ) {
@@ -567,16 +569,19 @@ BOOST_AUTO_TEST_CASE( generateBip49AddressDescriptors ) {
         0x8d, 0x48, 0xb2, 0xd2, 0xce, 0x9e, 0x38, 0xe4
     };
 
+    string xPubReceiveDescriptor = "[73c5da0a/49h/0h/0h]ypub6Ynvx7RLNYgWzFGM8aeU43hFNjTh7u5Grrup7Ryu2nKZ1Y8FWKaJZXiUrkJSnMmGVNBoVH1DNDtQ32tR4YFDRSpSUXjjvsiMnCvoPHVWXJP/0/*";
+    string xPubChangeDescriptor  = "[73c5da0a/49h/0h/0h]ypub6Ynvx7RLNYgX2yTF9GS9Eb1Wb444qVB62cxDpQF1ixXUHNMaDUvY67zpnwo2CMZXCrHtaEKHYQ4bqEKefq4R5kqUFhfRvMCn1TuQ5yJJfr2/1/*";
+
     Key masterKey = Key::MakeMasterKey(masterSeed, sizeof(masterSeed));
 
     char receivingDescriptor[MAX_DESCRIPTOR_LENGTH] = {'\0'};
     char changeDescriptor[MAX_DESCRIPTOR_LENGTH] = {'\0'};
 
-    masterKey.exportAddressDescriptor(BIP_49, RECEIVING, receivingDescriptor);
-    masterKey.exportAddressDescriptor(BIP_49, CHANGE, changeDescriptor);
+    masterKey.exportAddressDescriptor(BIP_49, 0, RECEIVING, receivingDescriptor);
+    masterKey.exportAddressDescriptor(BIP_49, 0, CHANGE, changeDescriptor);
 
-    cout << receivingDescriptor << endl;
-    cout << changeDescriptor << endl;
+    BOOST_CHECK(string(receivingDescriptor) == xPubReceiveDescriptor);
+    BOOST_CHECK(string(changeDescriptor) == xPubChangeDescriptor);
 }
 
 BOOST_AUTO_TEST_CASE( generateBip84AddressDescriptors ) {
@@ -591,16 +596,19 @@ BOOST_AUTO_TEST_CASE( generateBip84AddressDescriptors ) {
         0x8d, 0x48, 0xb2, 0xd2, 0xce, 0x9e, 0x38, 0xe4
     };
 
+    string xPubReceiveDescriptor = "[73c5da0a/84h/0h/0h]zpub6u4KbU8TSgNuZSxzv7HaGq5Tk361gMHdZxnM4UYuwzg5CMLcNytzhobitV4Zq6vWtWHpG9QijsigkxAzXvQWyLRfLq1L7VxPP1tky1hPfD4/0/*";
+    string xPubChangeDescriptor  = "[73c5da0a/84h/0h/0h]zpub6u4KbU8TSgNuco8HzL1LqM2ePjv8wrxUKENTtfambyxBbACZg5qvqqzAPwwAopTuxkrQzs661k5A6Q1P8b25a9DDJXYXDpN4KPwxygrx9Py/1/*";
+
     Key masterKey = Key::MakeMasterKey(masterSeed, sizeof(masterSeed));
 
     char receivingDescriptor[MAX_DESCRIPTOR_LENGTH] = {'\0'};
     char changeDescriptor[MAX_DESCRIPTOR_LENGTH] = {'\0'};
 
-    masterKey.exportAddressDescriptor(BIP_84, RECEIVING, receivingDescriptor);
-    masterKey.exportAddressDescriptor(BIP_84, CHANGE, changeDescriptor);
+    masterKey.exportAddressDescriptor(BIP_84, 0, RECEIVING, receivingDescriptor);
+    masterKey.exportAddressDescriptor(BIP_84, 0, CHANGE, changeDescriptor);
 
-    cout << receivingDescriptor << endl;
-    cout << changeDescriptor << endl;
+    BOOST_CHECK(string(receivingDescriptor) == xPubReceiveDescriptor);
+    BOOST_CHECK(string(changeDescriptor) == xPubChangeDescriptor);
 }
 
 BOOST_AUTO_TEST_CASE( generateBip86AddressDescriptors ) {
@@ -615,16 +623,19 @@ BOOST_AUTO_TEST_CASE( generateBip86AddressDescriptors ) {
         0x8d, 0x48, 0xb2, 0xd2, 0xce, 0x9e, 0x38, 0xe4
     };
 
+    string xPubReceiveDescriptor = "[73c5da0a/86h/0h/0h]xpub6EmR4gT2Lt7tseJfws6sm6Mvkc1yEoF6WiZS7Ppxj39xqy8VbCbCenCsWmFnwupZoq1Mq1EnAQtq38bb8RnwAE5epc965k8cjqKpi8NNGZY/0/*";
+    string xPubChangeDescriptor  = "[73c5da0a/86h/0h/0h]xpub6EmR4gT2Lt7tvAFNteXrigLhA3FQtwkCrkfZri9p7n9ggSQQkhQNUDhnTS2epuDHmuDAtKLTbMr27NeyM6UEz831o4d8KSFa5oHodvs4pqj/1/*";
+
     Key masterKey = Key::MakeMasterKey(masterSeed, sizeof(masterSeed));
 
     char receivingDescriptor[MAX_DESCRIPTOR_LENGTH] = {'\0'};
     char changeDescriptor[MAX_DESCRIPTOR_LENGTH] = {'\0'};
 
-    masterKey.exportAddressDescriptor(BIP_86, RECEIVING, receivingDescriptor);
-    masterKey.exportAddressDescriptor(BIP_86, CHANGE, changeDescriptor);
+    masterKey.exportAddressDescriptor(BIP_86, 0, RECEIVING, receivingDescriptor);
+    masterKey.exportAddressDescriptor(BIP_86, 0, CHANGE, changeDescriptor);
 
-    cout << receivingDescriptor << endl;
-    cout << changeDescriptor << endl;
+    BOOST_CHECK(string(receivingDescriptor) == xPubReceiveDescriptor);
+    BOOST_CHECK(string(changeDescriptor) == xPubChangeDescriptor);
 }
 
 BOOST_AUTO_TEST_SUITE_END()
