@@ -35,6 +35,9 @@ void SeedGenerator::start(const uint8_t* randomSeed)
     optional<InputMgr> inputMgr = InputMgr::Make(0);
 
     char input[INPUT_LEN] = {'\0'};
+    size_t len = 0;
+
+    uint8_t derivedKey[ENTROPY_SIZE];
     
     while (fgets(buffer, BUF_LEN, fp)) {
         buffer[strcspn(buffer, "\n")] = 0;
@@ -42,11 +45,9 @@ void SeedGenerator::start(const uint8_t* randomSeed)
             cout << "\n" << buffer << "\n";
 
             memset(input, '\0', INPUT_LEN);
-            size_t len = 0;
             inputMgr->secureInput(input, len);
 
-            uint8_t derivedKey[ENTROPY_SIZE];
-            if (!PKCS5_PBKDF2_HMAC(input, sizeof(input), _masterSeed, ENTROPY_SIZE, PBKDF2_ITERATIONS, \
+            if (!PKCS5_PBKDF2_HMAC(input, len, _masterSeed, ENTROPY_SIZE, PBKDF2_ITERATIONS, \
                                     EVP_sha512(), ENTROPY_SIZE, derivedKey)) {
                 std::cerr << "Error: PBKDF2 derivation failed\n";
                 exit(EXIT_FAILURE);
