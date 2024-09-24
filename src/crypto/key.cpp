@@ -309,11 +309,14 @@ void Key::getVersionCode(uint8_t* versionCode, bool isPrivate)
     } else {
         switch (_keyType) {
             case BIP_44:
+            case BIP_49:
+            case BIP_84:
             case BIP_86: {
                 uint8_t version[4] = VERSION_BIP44_PUB;
                 memcpy(versionCode, version, 4);
             } break;
 
+            /*
             case BIP_49: {
                 uint8_t version[4] = VERSION_BIP49_PUB;
                 memcpy(versionCode, version, 4);
@@ -323,6 +326,7 @@ void Key::getVersionCode(uint8_t* versionCode, bool isPrivate)
                 uint8_t version[4] = VERSION_BIP84_PUB;
                 memcpy(versionCode, version, 4);
             } break;
+            */
 
             default:
                 break;
@@ -464,12 +468,15 @@ char Key::addressTypeToChar(AddressType value)
     return (value == RECEIVING) ? '0' : '1';
 }
 
-void Key::getAddress(char* address)
+const string Key::getAddress()
 {
+    char address[43] = {'\0'};
     uint8_t compressed_pubkey[33] = {0x00};
     size_t len = 33;
     secp256k1_ec_pubkey_serialize(ctx, compressed_pubkey, &len, &pubkey, SECP256K1_EC_COMPRESSED);
     assert(len == sizeof(compressed_pubkey));
 
     generateP2WPKHAddress(compressed_pubkey, address);
+    string s(address);
+    return s;
 }
