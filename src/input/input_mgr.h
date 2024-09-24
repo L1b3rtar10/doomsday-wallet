@@ -23,7 +23,7 @@ class InputMgr
         void resetTermios();
 
     public:
-        static std::optional<InputMgr> Make(int echo);
+        static InputMgr Make(int echo);
         char secureInput(char* input, size_t& len);
 };
 

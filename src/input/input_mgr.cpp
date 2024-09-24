@@ -3,7 +3,7 @@
 #include "input_mgr.h"
 
 
-optional<InputMgr> InputMgr::Make(int echo)
+InputMgr InputMgr::Make(int echo)
 {
   return InputMgr(echo);
 }
