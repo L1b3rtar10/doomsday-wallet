@@ -28,7 +28,7 @@ class SeedGenerator
 
         static optional<SeedGenerator> Make(char* filename);
         
-        void start(const uint8_t* randomSeed);
+        void start(const uint8_t* randomSeed, uint8_t* master_seed, uint8_t* lightningMasterSeed);
 
         bool seedIsInitialised();
 

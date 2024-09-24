@@ -17,10 +17,10 @@ optional<SeedGenerator> SeedGenerator::Make(char *filename)
     return SeedGenerator(filename);
 }
 
-void SeedGenerator::start(const uint8_t* randomSeed)
+void SeedGenerator::start(const uint8_t* randomSeed, uint8_t* masterSeed, uint8_t* lightningMasterSeed)
 {
     char buffer[BUF_LEN];
-    memcpy(_masterSeed, randomSeed, ENTROPY_SIZE);
+    memcpy(masterSeed, randomSeed, ENTROPY_SIZE);
 
     FILE* fp;
     fp = fopen(_filename, "r");
@@ -47,18 +47,18 @@ void SeedGenerator::start(const uint8_t* randomSeed)
             memset(input, '\0', INPUT_LEN);
             inputMgr->secureInput(input, len);
 
-            if (!PKCS5_PBKDF2_HMAC(input, len, _masterSeed, ENTROPY_SIZE, PBKDF2_ITERATIONS, \
+            if (!PKCS5_PBKDF2_HMAC(input, len, masterSeed, ENTROPY_SIZE, PBKDF2_ITERATIONS, \
                                     EVP_sha512(), ENTROPY_SIZE, derivedKey)) {
                 std::cerr << "Error: PBKDF2 derivation failed\n";
                 exit(EXIT_FAILURE);
             }
 
-            memcpy(_masterSeed, derivedKey, ENTROPY_SIZE);
+            memcpy(masterSeed, derivedKey, ENTROPY_SIZE);
         }
     }
+    CHMAC_SHA512{masterSeed, ENTROPY_SIZE}.Write(randomSeed, ENTROPY_SIZE).Finalize(lightningMasterSeed);
     fclose(fp);
     _seedInitialised = true;
-    cout << "\n\nSeed generated, press return to continue...\n";
 }
 
 bool SeedGenerator::seedIsInitialised()
