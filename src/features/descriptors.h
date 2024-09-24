@@ -11,7 +11,7 @@ class DescriptorMgr
 
         optional<Key> _masterKey = nullopt;
         optional<Key> _accountKey = nullopt;
-
+        
         void showPrompt();
 
         int getUserInput();
@@ -27,9 +27,6 @@ class DescriptorMgr
         bool hasAccountKey();
 
         optional<Key> getAccountKey();
-
-        void exportDescriptors();
-
 };
 
 #endif

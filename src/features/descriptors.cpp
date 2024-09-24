@@ -5,6 +5,7 @@
 #include <string>
 
 #include "../crypto/key.h"
+#include "../bitcoin/wallets.h"
 
 DescriptorMgr::DescriptorMgr(uint8_t* masterSeed, uint8_t seedLength)
 {
@@ -41,49 +42,6 @@ bool DescriptorMgr::hasAccountKey()
 optional<Key> DescriptorMgr::getAccountKey()
 {
     return _accountKey;
-}
-
-void DescriptorMgr::exportDescriptors()
-{
-    char descriptor[MAX_DESCRIPTOR_LENGTH] = {'\0'};
-    showPrompt();
-    uint32_t accountNumber = getUserInput();
-
-    if (_masterKey.has_value()) {
-        _masterKey->exportAddressDescriptor(BIP_44, accountNumber, RECEIVING, descriptor);
-        cout << descriptor << endl;
-        memset(descriptor, '\0', MAX_DESCRIPTOR_LENGTH);
-
-        _masterKey->exportAddressDescriptor(BIP_44, accountNumber, CHANGE, descriptor);
-        cout << descriptor << endl;
-        memset(descriptor, '\0', MAX_DESCRIPTOR_LENGTH);
-
-         _masterKey->exportAddressDescriptor(BIP_49, accountNumber, RECEIVING, descriptor);
-        cout << descriptor << endl;
-        memset(descriptor, '\0', MAX_DESCRIPTOR_LENGTH);
-
-        _masterKey->exportAddressDescriptor(BIP_49, accountNumber, CHANGE, descriptor);
-        cout << descriptor << endl;
-        memset(descriptor, '\0', MAX_DESCRIPTOR_LENGTH);
-
-        _masterKey->exportAddressDescriptor(BIP_84, accountNumber, RECEIVING, descriptor);
-        cout << descriptor << endl;
-        memset(descriptor, '\0', MAX_DESCRIPTOR_LENGTH);
-
-        _masterKey->exportAddressDescriptor(BIP_84, accountNumber, CHANGE, descriptor);
-        cout << descriptor << endl;
-        memset(descriptor, '\0', MAX_DESCRIPTOR_LENGTH);
-
-         _masterKey->exportAddressDescriptor(BIP_86, accountNumber, RECEIVING, descriptor);
-        cout << descriptor << endl;
-        memset(descriptor, '\0', MAX_DESCRIPTOR_LENGTH);
-
-        _masterKey->exportAddressDescriptor(BIP_86, accountNumber, CHANGE, descriptor);
-        cout << descriptor << endl;
-        memset(descriptor, '\0', MAX_DESCRIPTOR_LENGTH);
-    }
-
-    getchar();
 }
 
 int DescriptorMgr::getUserInput() {
