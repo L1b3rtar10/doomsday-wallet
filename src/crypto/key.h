@@ -100,7 +100,7 @@ class Key {
 
         void exportAddressKeys(Key& descriptorKey, AddressType addressType);
 
-        void getAddress(char* address);
+        const string getAddress();
 
         void debug();
 
