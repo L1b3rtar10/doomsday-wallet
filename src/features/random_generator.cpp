@@ -21,11 +21,11 @@ string generateRandomSeed() {
     unsigned char seed[ENTROPY_SIZE];
 
     // Open /dev/urandom to read random data
-    ifstream urandom("/dev/urandom", ios::in | ios::binary);
+    std::ifstream urandom("/dev/urandom", ios::in | ios::binary);
 
     if (!urandom) {
         cerr << "Failed to open /dev/urandom" << endl;
-        return string("Error!");
+        return std::string("Error!");
     }
 
     // Read 64 random bytes from /dev/urandom
@@ -40,7 +40,7 @@ string generateRandomSeed() {
     }
 
     // Create a stringstream to hold the formatted output
-    stringstream output;
+    std::stringstream output;
     // Start the output in the required format
     output << "#define RANDOM_SEED { \\" << endl;
 
@@ -65,6 +65,21 @@ string generateRandomSeed() {
 
     // Close the output block
     output << "}" << endl;
+
+    // Create an output file stream (ofstream) object
+    std::ofstream outFile("features/seed.h");
+
+    // Check if the file is open
+    if (!outFile) {
+        std::cerr << "Error opening file for writing!" << std::endl;
+        return "Error";
+    }
+
+    // Write the string to the file
+    outFile << output.str();
+
+    // Close the file
+    outFile.close();
 
     return output.str();
 }
