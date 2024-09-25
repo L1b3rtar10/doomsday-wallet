@@ -1,112 +1,111 @@
 #include <iostream>
 #include <cassert>
 
+#include "features/random_generator.h"
 #include "features/seed_generator.h"
 #include "features/descriptors.h"
+#include "input/input_mgr.h"
 #include "bitcoin/wallets.h"
 #include "bitcoin/jsonparser.h"
 
-using namespace std;
-
-// 64 random bytes
-#define RANDOM_SEED { \
-    0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, \
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, \
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, \
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, \
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, \
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, \
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, \
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  \
-}
-
-#define EXIT_CODE '6'
-
-#define OPTIONS_MENU_NO_SEED "\n\n \
-    +++ Choose an option +++\n\
-    ----- 1. Initialise master key\n"
+#define EXIT_CODE '9'
 
 
 void createMenu(bool seedInitialised, optional<DescriptorMgr> descriptorMgr) {
     
-    cout << "\033[2J\033[1;1H";
-    cout << "* * * * * * * * * * * * * * *\n";
-    cout << "*     Doomsday Wallet       *\n";
-    cout << "* * * * * * * * * * * * * * *\n";
-    cout << "\n";
-    cout << "-- 1. Initialise master key" << (seedInitialised?" OK":"") << endl;
+    std::cout << "\033[2J\033[1;1H";
+    std::cout << "* * * * * * * * * * * * * * *\n";
+    std::cout << "*     Doomsday Wallet       *\n";
+    std::cout << "* * * * * * * * * * * * * * *\n";
+    std::cout << "\n";
+    std::cout << "-- 1. Initialise master key" << (seedInitialised?" OK":"") << endl;
 
     if (descriptorMgr.has_value() && descriptorMgr->getAccountKey().has_value()) {
         char descriptorOutput[MAX_DESCRIPTOR_LENGTH] = {'\0'};
         descriptorMgr->getAccountKey()->getDescriptor(descriptorOutput);
-        cout << "-- 2. Reference account keys: " << descriptorOutput << endl;
+        std::cout << "-- 2. Reference account keys: " << descriptorOutput << endl;
     } else {
-        cout << "-- 2. Generate account keys" << endl;
+        std::cout << "-- 2. Generate account keys" << endl;
     }
-    cout << "-- 3. List descriptors\n";
-    cout << "-- 4. Export Lightning node private key\n";
-    cout << "-- 5. Export descriptors to Bitcoin full node\n";
-    cout << "-- 6. Exit\n";
-    cout << "Please select an option: ";
+    std::cout << "-- 3. List descriptors\n";
+    std::cout << "-- 4. Export Lightning node private key\n";
+    std::cout << "-- 5. Export descriptors to Bitcoin full node\n";
+    std::cout << "-- 9. Exit\n";
+    std::cout << "Please select an option: ";
 }
 
-void printMenu() {
-    cout << "\033[2J\033[1;1H";
-    cout << OPTIONS_MENU_NO_SEED << "----- " << EXIT_CODE << ". Exit\n\n+++ Selection: ";
-    return;
+void promptRandomSeed() {
+    int input;
+    InputMgr inputMgr = InputMgr::Make(1);
+    do {
+        std::cout << "\033[2J\033[1;1H";
+        std::cout << "* * * * * * * * * * * * * * *\n";
+        std::cout << "*     Doomsday Wallet       *\n";
+        std::cout << "* * * * * * * * * * * * * * *\n";
+        std::cout << endl;
+        std::cout << generateRandomSeed();
+        std::cout << endl << "Hit '1' to generate a new random seed.";
+        std::cout << endl << "Hit '2' to exit." << endl;
+        input = inputMgr.readChar();
+    } while (input == '1');
+
+    std::cout << endl << "This is the random seed." << endl;
+    std::cout << "Copy and paste it into features/seed.h and then run 'make clean && make' in the terminal" << endl;
+    std::cout << "This IS NOT your private key, and it is safe to keep it stored as part of the source code." << endl;
 }
 
-constexpr bool isAllZero(const uint8_t array[], size_t size) {
-    for (size_t i = 0; i < size; ++i) {
-        if (array[i] != 0) {
-            return false;
-        }
-    }
-    return true;
+void firstStep() {
+    std::cout << "\033[2J\033[1;1H" << endl;
+    std::cout << "* * * * * * * * * * * * * * *\n";
+    std::cout << "*     Doomsday Wallet       *\n";
+    std::cout << "* * * * * * * * * * * * * * *\n";
+    std::cout << endl;
+    std::cout << "Step 1: you must initialise your doomesday wallet with a pseudo random number." << endl;
+    std::cout << "Hit enter to continue" << endl;
+    getchar();
 }
 
 int main(int argc, char **argv) {
-    static constexpr uint8_t randomSeed[] = RANDOM_SEED;
-    static_assert(sizeof(randomSeed) == ENTROPY_SIZE, "RANDOM_SEED provided MUST be 64 bytes long");
-    static_assert(!isAllZero(randomSeed, ENTROPY_SIZE), "RANDOM_SEED provided should be generated randomly");
-    
-    optional<SeedGenerator> seedGenerator = SeedGenerator::Make(argv[1]);
+    SeedGenerator seedGenerator = SeedGenerator::Make(argv[1]);
     optional<DescriptorMgr> descriptorMgr = nullopt;
     optional<WalletMgr> wallet = nullopt;
     optional<WalletMgr> lightningWallet = nullopt;
 
-    uint8_t testSeed[ENTROPY_SIZE] = {'\0'};
-    wallet = WalletMgr::Make("test_watchonly", testSeed);
-
-    createMenu(wallet.has_value(), descriptorMgr);
-    
+    if (!seedGenerator.randomSeedIsInitialised()) {
+        firstStep();
+        promptRandomSeed();
+        exit(0);
+    }
+        
     char choice = '\0';
 
     while (choice != EXIT_CODE) {
         createMenu(wallet.has_value(), descriptorMgr);
         choice = getchar();
         switch (choice) {
-            case '1':
-                if (seedGenerator.has_value()) {
-                    uint8_t masterSeed[ENTROPY_SIZE] = {'\0'};
-                    uint8_t lightningMasterSeed[ENTROPY_SIZE] = {'\0'};
-                    seedGenerator->start(randomSeed, masterSeed, lightningMasterSeed);
-                    cout << "\n\nSeed generated, press return to continue..." << endl;
-                    wallet = WalletMgr::Make("doomsday_wallet", masterSeed);
-                    lightningWallet = WalletMgr::Make("lightning_wallet", lightningMasterSeed);
-                    descriptorMgr = DescriptorMgr(masterSeed, ENTROPY_SIZE);
-                }
+            case '1': {
+                uint8_t masterSeed[ENTROPY_SIZE] = {'\0'};
+                uint8_t lightningMasterSeed[ENTROPY_SIZE] = {'\0'};
+                
+                seedGenerator.start(masterSeed, lightningMasterSeed);
+                std::cout << "\n\nSeed generated, press return to continue..." << endl;
+                wallet = WalletMgr::Make("doomsday_wallet", masterSeed);
+                lightningWallet = WalletMgr::Make("lightning_wallet", lightningMasterSeed);
+                descriptorMgr = DescriptorMgr(masterSeed, ENTROPY_SIZE);                       
+                
+                getchar();
                 break;
+            }
             case '2':
                 if (wallet.has_value()) {
                     int accountNumber = 0;
-                    cout << "\n\nInsert an account number" << endl;
-                    cin >> accountNumber;
+                    std::cout << "\n\nInsert an account number" << endl;
+                    std::cin >> accountNumber;
                     wallet->generateAccountDescriptors(accountNumber);
                     char c = getchar();
-                    cout << "\n\nAccount keys generated." << endl;
+                    std::cout << "\n\nAccount keys generated." << endl;
                 } else {
-                    cout << "Master key must be initialised first.";
+                    std::cout << "Master key must be initialised first.";
                 }
                 break;
             case '3':
@@ -114,28 +113,27 @@ int main(int argc, char **argv) {
                     vector<string> descriptors = wallet->getDescriptors();
                     vector<string>::iterator it;
                     for (it = descriptors.begin(); it != descriptors.end(); it++) {
-                        cout << *it << endl;
+                        std::cout << *it << endl;
                     }
                     char c = getchar();
-                    cout << "\n\nNow copy the descriptors if you need to." << endl;
+                    std::cout << "\n\nNow copy the descriptors if you need to." << endl;
                     
                 } else {
-                    cout << "Wallet must be initialised first." << endl;
+                    std::cout << "Wallet must be initialised first." << endl;
                 }
                 break;
             case '4':
                 if (wallet.has_value()) {
                     Key masterLightningKey = lightningWallet->exportMasterPrivKey();
-                    Key masterKey = wallet->exportMasterPrivKey();
-
-                    cout << "Lightning private key > " << masterLightningKey.exportXprivKey() << endl;
+                    lightningWallet->generateAccountDescriptors(0);
+                    std::cout << "Lightning private key > " << masterLightningKey.exportXprivKey() << endl;
                     char c = getchar();
-                    cout << endl;
-                    cout << "This is the key to create a lightning node hot wallet." << endl;
-                    cout << "Keep this key safe." << endl;
+                    std::cout << endl;
+                    std::cout << "This is the key to create a lightning node hot wallet." << endl;
+                    std::cout << "Keep this key safe." << endl;
                     
                 } else {
-                    cout << "Wallet must be initialised first." << endl;
+                    std::cout << "Wallet must be initialised first." << endl;
                 }
                 break;
             case '5':
@@ -154,16 +152,15 @@ int main(int argc, char **argv) {
                     }
                     
                 } else {
-                    cout << "Master key must be initialised first.";
+                    std::cout << "Master key must be initialised first.";
                 }
             */
                 break;
-            
         }
-        cout << "\nPress return to continue... " << endl;
+        std::cout << "\nPress return to continue... " << endl;
         char c = getchar();
         while (c != '\n') {
-            cout << "Press return to continue... " << endl;
+            std::cout << "Press return to continue... " << endl;
             c = getchar();
         }
     }

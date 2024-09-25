@@ -1,24 +1,43 @@
 #include <iostream>
-#include <string.h>
+#include <string>
 #include <openssl/evp.h>
 #include <openssl/rand.h>
 
 #include "seed_generator.h"
+#include "seed.h"
 #include "../input/input_mgr.h"
 #include "../crypto/hmac_sha512.h"
 #include "../crypto/byteutils.h"
 
 #define PBKDF2_ITERATIONS 100000 // Number of PBKDF2 iterations
 
+#define BUF_LEN 256
 #define INPUT_LEN 64   // Max length for each user input
 
-optional<SeedGenerator> SeedGenerator::Make(char *filename)
+SeedGenerator SeedGenerator::Make(char *filename)
 {
     return SeedGenerator(filename);
 }
 
-void SeedGenerator::start(const uint8_t* randomSeed, uint8_t* masterSeed, uint8_t* lightningMasterSeed)
+bool SeedGenerator::randomSeedIsInitialised() {
+    uint8_t randomSeed[] = RANDOM_SEED;
+    if (sizeof(randomSeed) != ENTROPY_SIZE) {
+        cout << endl;
+        cout << "RANDOM_SEED provided MUST be 64 bytes long, but is " << sizeof(randomSeed) << " instead.";
+        return false;
+    }
+    if (isAllZero(randomSeed, ENTROPY_SIZE)) {
+        cout << endl;
+        cout << "RANDOM_SEED should be generated randomly";
+        return false;
+    }
+    memset(randomSeed, 0x00, ENTROPY_SIZE);
+    return true;
+}
+
+void SeedGenerator::start(uint8_t* masterSeed, uint8_t* lightningMasterSeed)
 {
+    uint8_t randomSeed[] = RANDOM_SEED;
     char buffer[BUF_LEN];
     memcpy(masterSeed, randomSeed, ENTROPY_SIZE);
 
@@ -70,6 +89,16 @@ uint8_t* SeedGenerator::getSeed()
 {
     return _masterSeed;
 }
+
+bool SeedGenerator::isAllZero(const uint8_t array[], size_t size) {
+    for (size_t i = 0; i < size; ++i) {
+        if (array[i] != 0) {
+            return false;
+        }
+    }
+    return true;
+}
+
 
 void SeedGenerator::showPrompt()
 {

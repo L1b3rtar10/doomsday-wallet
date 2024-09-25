@@ -25,6 +25,7 @@ class InputMgr
     public:
         static InputMgr Make(int echo);
         char secureInput(char* input, size_t& len);
+        char readChar();
 };
 
 #endif

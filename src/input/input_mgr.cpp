@@ -37,3 +37,14 @@ char InputMgr::secureInput(char* input, size_t& len)
   resetTermios();
   return ch;
 }
+
+/* Read 1 character - echo defines echo mode */
+char InputMgr::readChar()
+{
+  char ch;
+  setConfig();
+  
+  ch = getchar();
+  resetTermios();
+  return ch;
+}

@@ -1,9 +1,6 @@
 #ifndef SEED_GENERATOR_H
 #define SEED_GENERATOR_H
 
-#define BUF_LEN 256
-
-#include <optional>
 #include "../crypto/key.h"
 
 using namespace std;
@@ -24,15 +21,19 @@ class SeedGenerator
 
         void showPrompt();
 
+        bool isAllZero(const uint8_t array[], size_t size);
+
     public:
 
-        static optional<SeedGenerator> Make(char* filename);
+        static SeedGenerator Make(char* filename);
         
-        void start(const uint8_t* randomSeed, uint8_t* master_seed, uint8_t* lightningMasterSeed);
+        void start(uint8_t* master_seed, uint8_t* lightningMasterSeed);
 
         bool seedIsInitialised();
 
         uint8_t* getSeed();
+
+        bool randomSeedIsInitialised();
 };
 
 #endif
