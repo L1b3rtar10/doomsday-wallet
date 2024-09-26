@@ -67,7 +67,9 @@ To build the software, go to src/ and run:
     make
 
 ## Run
-After a successful build, run ./doomsdaywallet [inputfile.txt]
+After a successful build, run 
+
+    `./doomsdaywallet [questionsfile.txt]`
 
 
 # Development #
