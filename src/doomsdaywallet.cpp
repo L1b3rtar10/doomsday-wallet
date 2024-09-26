@@ -111,6 +111,7 @@ int main(int argc, char **argv) {
                     if (wallet.has_value()) {
                         vector<string> descriptors = wallet->getDescriptors();
                         vector<string>::iterator it;
+                        std::cout << endl;
                         for (it = descriptors.begin(); it != descriptors.end(); it++) {
                             std::cout << *it << endl;
                         }
@@ -125,6 +126,7 @@ int main(int argc, char **argv) {
                     if (wallet.has_value()) {
                         Key masterLightningKey = lightningWallet->exportMasterPrivKey();
                         lightningWallet->generateAccountDescriptors(0);
+                        std::cout << endl;
                         std::cout << "Lightning private key > " << masterLightningKey.exportXprivKey() << endl;
                         char c = getchar();
                         std::cout << endl;
