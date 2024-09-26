@@ -62,18 +62,17 @@ The only precaution (although the possibility to exploit it is very narrow) is t
 Running the software on an offline machine guarantees that the private key will not be accessible once generated.
 
 ## Build
-For normal builds, run:
+To build the software, go to src/ and run:
 
     make
 
-For debug builds (gdb enabled), run:
+## Run
+After a successful build, run ./doomsdaywallet [inputfile.txt]
 
-    make debug
 
+# Development #
 
-## Development
-
-### Development Environment Setup
+### Development Environment Setup ###
 The project uses Docker with a minimal gcc image. Once built, we need to build and install the secp256k1 library.
 
 - Build a development Docker image environment:
@@ -92,11 +91,21 @@ The project uses Docker with a minimal gcc image. Once built, we need to build a
 
     `export LD_LIBRARY_PATH=/usr/local/lib/:$LD_LIBRARY_PATH`
 
+- Install libcurl
+
+    `sudo apt-get install libcurl4-openssl-dev`
+
 ### Unit tests
 * Must have boost installed [Boost download](https://www.boost.org/users/download/#live)
-* In test folder, run: 
+* In test folder, run:
+
     `make`
 
 ### Using GDB
+- For debug builds (gdb enabled), run:
+
+    `make debug`
+
 - Run the program using GDB:
+
     `gdb --args doomsdaywallet example.txt`

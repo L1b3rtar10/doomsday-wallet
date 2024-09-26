@@ -1,3 +1,6 @@
 [submodule "secp256k1"]
 	path = secp256k1
 	url = https://github.com/bitcoin-core/secp256k1
+[submodule "curl"]
+	path = curl
+	url = https://github.com/curl/curl

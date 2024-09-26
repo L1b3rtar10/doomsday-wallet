@@ -5,7 +5,6 @@
 #include "features/descriptors.h"
 #include "input/input_mgr.h"
 #include "bitcoin/wallets.h"
-#include "bitcoin/jsonparser.h"
 
 #define EXIT_CODE '9'
 
