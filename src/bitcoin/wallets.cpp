@@ -427,3 +427,7 @@ string WalletMgr::createDescriptorImport(string descriptor, string label)
   
   return "[" + input.toJson() + "]";
 }
+
+const string WalletMgr::getMasterFingerprint() {
+  return _masterKey.getFingerprint();
+}

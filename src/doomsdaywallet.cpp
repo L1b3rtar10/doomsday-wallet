@@ -8,15 +8,22 @@
 
 #define EXIT_CODE '9'
 
+string walletIsReadyString(optional<WalletMgr> wallet) {
+    string menu("");
+    if (wallet.has_value()) {
+        menu += " [" + wallet->getMasterFingerprint() + "] OK";
+    }
+    return menu;
+}
 
-void createMenu(bool seedInitialised, optional<DescriptorMgr> descriptorMgr) {
+void createMenu(optional<WalletMgr> wallet, optional<DescriptorMgr> descriptorMgr) {
     
     std::cout << "\033[2J\033[1;1H";
     std::cout << "* * * * * * * * * * * * * * *\n";
     std::cout << "*     Doomsday Wallet       *\n";
     std::cout << "* * * * * * * * * * * * * * *\n";
     std::cout << "\n";
-    std::cout << "-- 1. Initialise master key" << (seedInitialised?" OK":"") << endl;
+    std::cout << "-- 1. Initialise master key" << walletIsReadyString(wallet) << endl;
 
     if (descriptorMgr.has_value() && descriptorMgr->getAccountKey().has_value()) {
         char descriptorOutput[MAX_DESCRIPTOR_LENGTH] = {'\0'};
@@ -78,7 +85,7 @@ int main(int argc, char **argv) {
             randomSeedGeneration();
             exit(0);
         } else {
-            createMenu(wallet.has_value(), descriptorMgr);
+            createMenu(wallet, descriptorMgr);
             choice = getchar();
             switch (choice) {
                 case '1': {

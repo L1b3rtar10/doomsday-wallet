@@ -23,8 +23,11 @@
 #define VERSION_BIP84_PRIV {0x04, 0xB2, 0x43, 0x0C}
 #define VERSION_BIP84_PUB {0x04, 0xB2, 0x47, 0x46}
 
+#define COMPRESSED_KEY_LENGTH 33
 #define SERIALIZED_KEY_LENGTH 111
 #define MAX_DESCRIPTOR_LENGTH 255
+#define FULL_FINGERPRINT_LENGTH 20
+#define FINGERPRINT_LENGTH 8
 
 enum Keytype {
     BIP_44 = 44,
@@ -113,6 +116,8 @@ class Key {
         void exportAddressDescriptor(Keytype keyType, uint32_t accountNumber, AddressType addressType, char* descriptor);
 
         void erase();
+
+        const string getFingerprint();
 };
 
 #endif // CRYPTO_KEY

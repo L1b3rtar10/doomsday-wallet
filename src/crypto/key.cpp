@@ -80,8 +80,8 @@ void Key::getPoint(const uint8_t* privateKey, uint8_t* outKey, size_t* size)
     
     assert(secp256k1_ec_pubkey_combine(ctx, &out_pubKey, ins, 2));
 
-    uint8_t outputCompressed[33] = {0x00};
-    size_t len = 33;
+    uint8_t outputCompressed[COMPRESSED_KEY_LENGTH] = {0x00};
+    size_t len = COMPRESSED_KEY_LENGTH;
 
     secp256k1_ec_pubkey_serialize(ctx, outKey, size, &out_pubKey, SECP256K1_EC_COMPRESSED);
 }
@@ -99,8 +99,8 @@ void Key::deriveChildKey(const uint32_t index, Key& outKey)
     uint8_t index_bytes[4] = {0x00}; 
     uint32ToBytes(index, index_bytes);
 
-    uint8_t compressed_pubkey[33] = {0x00};
-    size_t len = 33;
+    uint8_t compressed_pubkey[COMPRESSED_KEY_LENGTH] = {0x00};
+    size_t len = COMPRESSED_KEY_LENGTH;
     secp256k1_ec_pubkey_serialize(ctx, compressed_pubkey, &len, &pubkey, SECP256K1_EC_COMPRESSED);
     assert(len == sizeof(compressed_pubkey));
 
@@ -108,12 +108,12 @@ void Key::deriveChildKey(const uint32_t index, Key& outKey)
     uint8_t vout[64] = {0x00};
     
     if (index < MIN_HARDENED_CHILD_INDEX) {
-        memcpy(&data[0], compressed_pubkey, 33);
-        memcpy(&data[33], index_bytes, 4);
+        memcpy(&data[0], compressed_pubkey, COMPRESSED_KEY_LENGTH);
+        memcpy(&data[COMPRESSED_KEY_LENGTH], index_bytes, 4);
         CHMAC_SHA512{&keyMaterial[32], 32}.Write(data, 37).Finalize(vout);
     } else {
         memcpy(&data[1], keyMaterial, 32);
-        memcpy(&data[33], index_bytes, 4);
+        memcpy(&data[COMPRESSED_KEY_LENGTH], index_bytes, 4);
         CHMAC_SHA512{&keyMaterial[32], 32}.Write(data, 37).Finalize(vout);
     }
 
@@ -192,7 +192,7 @@ void Key::calculateParentFingerprint(const uint8_t* parent_pbkey, uint8_t* paren
 {
     unsigned char sha256Hash[SIZE_OF_SHA_256_HASH] = {0x00};
 
-    calc_sha_256(sha256Hash, parent_pbkey, 33);
+    calc_sha_256(sha256Hash, parent_pbkey, COMPRESSED_KEY_LENGTH);
     CRIPEMD160{}.Write(sha256Hash, SIZE_OF_SHA_256_HASH).Finalize(parent_fingerprint);
 }
 
@@ -208,12 +208,12 @@ void Key::debug()
     print_string(keyMaterial, 64);
     printf("\n");
 
-    uint8_t compressed_pubkey[33] = {0x00};
-    size_t len = 33;
+    uint8_t compressed_pubkey[COMPRESSED_KEY_LENGTH] = {0x00};
+    size_t len = COMPRESSED_KEY_LENGTH;
     secp256k1_ec_pubkey_serialize(ctx, compressed_pubkey, &len, &pubkey, SECP256K1_EC_COMPRESSED);
     assert(len == sizeof(compressed_pubkey));
     printf("\n pubkey > ");
-    print_string(compressed_pubkey, 33);
+    print_string(compressed_pubkey, COMPRESSED_KEY_LENGTH);
     printf("\n");
 }
 
@@ -246,14 +246,13 @@ void Key::exportXpubKey(char* serialisedKey, size_t &serialisedLength)
 
     memcpy(&input[PREFIX_LENGTH], &keyMaterial[32], 32); // Copy chaincode
 
-    const size_t COMPRESSED_KEY_SIZE = 33;
-    size_t outputKeyLength = COMPRESSED_KEY_SIZE;
-    uint8_t serialised_pubkey[COMPRESSED_KEY_SIZE] = {0x00};
+    size_t outputKeyLength = COMPRESSED_KEY_LENGTH;
+    uint8_t serialised_pubkey[COMPRESSED_KEY_LENGTH] = {0x00};
 
     assert(secp256k1_ec_pubkey_serialize(ctx, serialised_pubkey, &outputKeyLength, &pubkey, SECP256K1_EC_COMPRESSED));
-    assert(COMPRESSED_KEY_SIZE == outputKeyLength);
+    assert(COMPRESSED_KEY_LENGTH == outputKeyLength);
 
-    memcpy(&input[32 + PREFIX_LENGTH], serialised_pubkey, 33);
+    memcpy(&input[32 + PREFIX_LENGTH], serialised_pubkey, COMPRESSED_KEY_LENGTH);
 
     memcpy(&input[0], version, 4);
     input[4] = _depth;
@@ -471,12 +470,29 @@ char Key::addressTypeToChar(AddressType value)
 const string Key::getAddress()
 {
     char address[43] = {'\0'};
-    uint8_t compressed_pubkey[33] = {0x00};
-    size_t len = 33;
+    uint8_t compressed_pubkey[COMPRESSED_KEY_LENGTH] = {0x00};
+    size_t len = COMPRESSED_KEY_LENGTH;
     secp256k1_ec_pubkey_serialize(ctx, compressed_pubkey, &len, &pubkey, SECP256K1_EC_COMPRESSED);
     assert(len == sizeof(compressed_pubkey));
 
     generateP2WPKHAddress(compressed_pubkey, address);
     string s(address);
+    return s;
+}
+
+const string Key::getFingerprint() {
+    char parentFingerprintValue[FINGERPRINT_LENGTH + 1] = {'\0'}; 
+    uint8_t compressed_pubkey[COMPRESSED_KEY_LENGTH] = {0x00};
+    size_t len = COMPRESSED_KEY_LENGTH;
+    secp256k1_ec_pubkey_serialize(ctx, compressed_pubkey, &len, &pubkey, SECP256K1_EC_COMPRESSED);
+    assert(len == sizeof(compressed_pubkey));
+    uint8_t parent_fingerprint[FULL_FINGERPRINT_LENGTH] = {0x00};
+    calculateKeyFingerprint(compressed_pubkey, parent_fingerprint);
+
+    for (size_t i = 0; i < 4; ++i) {
+        byteToHex(parent_fingerprint[i], &parentFingerprintValue[i * 2]);
+    }
+
+    string s(parentFingerprintValue);
     return s;
 }

@@ -35,7 +35,12 @@ bool SeedGenerator::randomSeedIsInitialised() {
     return true;
 }
 
-void SeedGenerator::start(uint8_t* masterSeed, uint8_t* lightningMasterSeed)
+/**
+ * Generates 2 different master seeds starting from RANDOM_SEED.
+ * @param masterSeed can be used for on-chain wallet generation
+ * @param lightningMasterSeed can be used for lightning wallet generation
+ */
+void SeedGenerator::start(/*OUT*/ uint8_t* masterSeed, /*OUT*/ uint8_t* lightningMasterSeed)
 {
     uint8_t randomSeed[] = RANDOM_SEED;
     char buffer[BUF_LEN];

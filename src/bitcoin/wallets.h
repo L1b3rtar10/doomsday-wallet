@@ -128,6 +128,8 @@ public:
 
     void generateLightningMasterKey(Key& lightningKey);
 
+    const string getMasterFingerprint();
+
 };
 
 #endif
