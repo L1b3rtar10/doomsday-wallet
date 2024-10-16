@@ -4,7 +4,7 @@
 # in the image's shell
 # See README.md for details about development environment setup
 
-cd secp256k1
+cd /doomsdaywallet/secp256k1
 ./autogen.sh
 ./configure
 make
