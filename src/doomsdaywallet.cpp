@@ -1,12 +1,20 @@
+#include <unistd.h>
+#include <ncurses.h>
+
 #include <iostream>
+#include <thread>
+#include <atomic>
 
 #include "features/random_generator.h"
 #include "features/seed_generator.h"
 #include "features/descriptors.h"
 #include "input/input_mgr.h"
 #include "bitcoin/wallets.h"
+#include "bitcoin/nodemanager.h"
 
-#define EXIT_CODE '9'
+#define EXIT_CODE 'q'
+
+int dotCounter = 0;
 
 string walletIsReadyString(optional<WalletMgr> wallet) {
     string menu("");
@@ -34,8 +42,13 @@ void createMenu(optional<WalletMgr> wallet, optional<DescriptorMgr> descriptorMg
     }
     std::cout << "-- 3. List descriptors\n";
     std::cout << "-- 4. Export Lightning node private key\n";
-    //std::cout << "-- 5. Export descriptors to Bitcoin full node\n";
-    std::cout << "-- 9. Exit\n";
+    std::cout << "-- 5. Create watchonly wallet from descriptors\n";
+    std::cout << "-- 6. List existing wallets on fullnode\n";
+    std::cout << "-- 7. List descriptors on fullnode\n";
+    std::cout << "-- 8. Get blockchain info\n";
+    std::cout << "-- 9. Get wallet info\n";
+    std::cout << "-- t. Legacy transaction\n";
+    std::cout << "-- q. Exit\n";
     std::cout << "Please select an option: ";
 }
 
@@ -71,11 +84,26 @@ void startGeneratingRandomSeed() {
     getchar();
 }
 
+void backgroundShowProgress() {
+    for (int i = 0; i < dotCounter; ++i) {
+        std::cout << ".";
+        std::cout.flush();
+    }
+
+    dotCounter = (dotCounter + 1) % 4;
+    sleep(1);                     
+}
+
 int main(int argc, char **argv) {
+    
+    curl_global_init(CURL_GLOBAL_DEFAULT);
+
     SeedGenerator seedGenerator = SeedGenerator::Make(argv[1]);
     optional<DescriptorMgr> descriptorMgr = nullopt;
     optional<WalletMgr> wallet = nullopt;
     optional<WalletMgr> lightningWallet = nullopt;
+
+    NodeManager nodeManager = NodeManager();
         
     char choice = '\0';
 
@@ -98,7 +126,6 @@ int main(int argc, char **argv) {
                     lightningWallet = WalletMgr::Make("lightning_wallet", lightningMasterSeed);
                     descriptorMgr = DescriptorMgr(masterSeed, ENTROPY_SIZE);                       
                     
-                    getchar();
                     break;
                 }
                 case '2':
@@ -121,7 +148,6 @@ int main(int argc, char **argv) {
                         for (it = descriptors.begin(); it != descriptors.end(); it++) {
                             std::cout << *it << endl;
                         }
-                        char c = getchar();
                         std::cout << "\n\nNow copy the descriptors if you need to." << endl;
                         
                     } else {
@@ -144,6 +170,118 @@ int main(int argc, char **argv) {
                     }
                     break;
                 case '5':
+                    if (wallet.has_value()) {
+                        string createWalletName("");
+                        cout << "Insert a name for your wallet > ";
+                        cin >> createWalletName;
+                        cout << endl << "Wallet name is " << createWalletName << endl;
+                        wallet->setName(createWalletName);
+
+                        nodeManager.runApi(CREATE_WALLET, string("[")+"\"" + createWalletName + "\"]", "", true);
+                        while (nodeManager.operationIsInProgress()) {
+                            backgroundShowProgress();                             
+                        }
+                        nodeManager.apiThread.join();
+                        
+                        cout << endl << "La risposta " << nodeManager.apiResponse << endl;
+        
+                        vector<string> descriptors = wallet->getDescriptors();
+                        vector<string>::iterator descriptor;
+                        for (descriptor = descriptors.begin(); descriptor != descriptors.end(); descriptor++) {
+                            optional<JsonObject> descriptorInfo = wallet->getDescriptorInfo(*descriptor);
+                            if(descriptorInfo.has_value()) {
+                                string descriptorImport = descriptorInfo->getChildAsString("descriptor");
+                                string response = wallet->importDescriptor(descriptorImport, "test_import");
+                            }
+                        }
+                            
+                    } else {
+                        std::cout << "Master key must be initialised first.";
+                    }
+                    break;
+                case '6':
+                    
+                    nodeManager.runApi(LIST_WALLETS, "[]", "", true);
+                    
+                    while (nodeManager.operationIsInProgress()) {
+                        backgroundShowProgress();                             
+                    }
+                    nodeManager.apiThread.join();
+                    cout << endl << "La risposta " << nodeManager.apiResponse << endl;
+                    break;
+
+                case '7':
+
+                    nodeManager.runApi(LOAD_WALLET, "[\"doomsday_wallet\"]", "", true);
+                    while (nodeManager.operationIsInProgress()) {
+                        backgroundShowProgress();                             
+                    }
+                    nodeManager.apiThread.join();
+                    cout << endl << "La risposta " << nodeManager.apiResponse << endl;
+
+                    nodeManager.runApi(WALLET_PASSPHRASE, "[\"laralara\", 60]", "wallet/doomsday_wallet", true);
+                    while (nodeManager.operationIsInProgress()) {
+                        backgroundShowProgress();                             
+                    }
+                    nodeManager.apiThread.join();
+                    cout << endl << "La risposta " << nodeManager.apiResponse << endl;
+
+                    nodeManager.runApi(LIST_DESCRIPTORS, "[]", "wallet/doomsday_wallet", true); // Senza / finale!!!
+                    while (nodeManager.operationIsInProgress()) {
+                        backgroundShowProgress();                             
+                    }
+                    nodeManager.apiThread.join();
+                    cout << endl << "La risposta " << nodeManager.apiResponse << endl;
+
+                    break;
+
+                case '8':
+                    nodeManager.runApi(GET_BLOCKCHAIN_INFO, "[]", "", true);
+                    
+                    while (nodeManager.operationIsInProgress()) {
+                        backgroundShowProgress();                             
+                    }
+                    nodeManager.apiThread.join();
+                    
+                    cout << endl << "La risposta " << nodeManager.apiResponse << endl;
+                    break;
+                case '9': {
+                    string walletInfoName("");
+                    cout << "Insert the wallet's name > " << endl;
+                    cin >> walletInfoName;
+                    //cout.flush();
+
+                    nodeManager.runApi(GET_WALLET_INFO, "[]", string("wallet/") + walletInfoName, true);
+                    while (nodeManager.operationIsInProgress()) {
+                        backgroundShowProgress();                             
+                    }
+                    nodeManager.apiThread.join();
+                    
+                    cout << endl << "La risposta " << nodeManager.apiResponse << endl;
+                    break;
+                }
+
+                case 't': {
+                    CAmount transactionAmount = 0;
+                    cout << "Insert the amount in SATS > ";
+                    cin >> transactionAmount;
+                    cout.flush();
+
+                    string destinationAddress("");
+                    cout << "Insert the destination address  > ";
+                    cin >> destinationAddress;
+                    cout.flush();
+
+                    nodeManager.sendAmountToAddress(transactionAmount, destinationAddress, "bc1q4xnv2hftsz82qtl4nzsjf3szv7yv3smy3nwme2");
+                    while(nodeManager.operationIsInProgress()) {
+                        backgroundShowProgress();                             
+                    }
+                    nodeManager.apiThread.join();
+                    
+                    JsonObject response = JsonObject(nodeManager.apiResponse);
+
+                    break;
+                }
                 /*
                     if (wallet.has_value()) {
                         wallet->getBlockchainInfo();
@@ -162,12 +300,12 @@ int main(int argc, char **argv) {
                         std::cout << "Master key must be initialised first.";
                     }
                 */
-                    break;
             }
-            std::cout << "\nPress return to continue... " << endl;
+            getchar();
+            std::cout << "\nPress return to continue k... " << endl;
             char c = getchar();
             while (c != '\n') {
-                std::cout << "Press return to continue... " << endl;
+                std::cout << "Press return to continue m... " << endl;
                 c = getchar();
             }
         }

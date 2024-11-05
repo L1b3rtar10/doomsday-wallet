@@ -34,6 +34,18 @@ string JsonObject::getChildAsString(string key) {
     return "";
 }
 
+bool JsonObject::getChildAsBool(string key) {
+  for (int i = 0; i < keys.size(); i++) {
+      if (key.compare(keys[i]) == 0) {
+        string value = _jsonString.substr(valueIndex[i], valueSize[i]);
+        if (value == "true") {
+          return true;
+        }
+      }
+    }
+    return false;
+}
+
 JsonObject JsonObject::getChildAsJsonObject(string key) {
   return JsonObject(getChildAsString(key));
 }
@@ -59,8 +71,8 @@ int JsonObject::getChildAsInt(string key) {
     return 0;
 }
 
-string JsonObject::getChildAt(size_t index) {
-  return _jsonString.substr(valueIndex[index], valueSize[index]);
+JsonObject JsonObject::getChildAt(size_t index) {
+  return JsonObject(_jsonString.substr(valueIndex[index], valueSize[index]));
 }
 
 string JsonObject::print() {
@@ -73,9 +85,10 @@ void JsonObject::addKVString(string key, string value) {
   types.push_back(STRING);
 }
 
-void JsonObject::addKVAmount(string key, CAmount amount) {
+void JsonObject::addKVAmount(string key, CAmount amountSats) {
   keys.push_back(key);
-  values.push_back(to_string(amount));
+  double amountBtc = (double)amountSats/COIN;
+  values.push_back(to_string(amountBtc));
   types.push_back(NUMBER);
 }
 
@@ -107,4 +120,14 @@ string JsonObject::toJson() {
   }
   jsonString += "}";
   return jsonString;
+}
+
+char JsonObject::setClosingChar(char openChar) {
+  if (openChar == '{') {
+    return '}';
+  } else if (openChar == '[') {
+    return ']';
+  } else if (openChar == '"') {
+    return '"';
+  }
 }

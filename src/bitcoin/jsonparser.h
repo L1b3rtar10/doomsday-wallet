@@ -22,12 +22,13 @@ class JsonObject
 {
 private:
     string _jsonString;
-    //vector<Node> nodes;
     vector<string> keys;
     vector<string> values;
     vector<JsonType> types;
     vector<int> valueIndex;
     vector<int> valueSize;
+
+    char setClosingChar(char openChar);
 
 public:
 
@@ -50,38 +51,21 @@ public:
         int keyStart = 0;
         int valueStart = 0;
         uint8_t depth = 0;
+        char closingChar = '\0';
 
         if (isArray()) {
-            if (_jsonString[1] != '{') {
-                valueStart = 1;
-                openKey = true;
-                valueIndex.push_back(valueStart);
-                //cout << "\nKey open";
-            }
-            
             for (int i = 0; i < _jsonString.length(); i++) {
                 if (_jsonString[i] == '{') {
-                    if (!openKey && depth == 0) {
+                    depth += 1; 
+                    if (depth == 1) {
                         valueStart = i;
-                        openKey = true;
                         valueIndex.push_back(valueStart);
-                        //cout << "\nKey open";
                     }
-                    depth += 1;    
                 } else if (_jsonString[i] == '}') {
                     depth -= 1;
-                } else if ((_jsonString[i] == ',') && (depth == 0)) {
+                } else if ((_jsonString[i] == ',' || (_jsonString[i] == ']')) && (depth == 0)) {
                     valueSize.push_back(i - valueStart);
-                    //cout << "\nValue found " << valueIndex[valueIndex.size() - 1];
-                    valueStart = i + 1;
-                    valueIndex.push_back(valueStart);
-                    openKey = true;
-                } else if (_jsonString[i] == ']' && openKey && depth == 0) {
-                    valueSize.push_back(i - valueStart);
-                    //cout << "\nValue found " << valueIndex[valueIndex.size() - 1];
                 }
-                
-                //cout << "\n" << _jsonString[i] << " depth > " << unsigned(depth);
             }
         } else {
             for (int i = 0; i < _jsonString.length(); i++) {
@@ -91,8 +75,7 @@ public:
                 } else if (_jsonString[i] == '"' && openKey && !isLeaf) {
                     openKey = false;
                     keys.push_back(_jsonString.substr(keyStart, i - keyStart));
-                    //cout << "\nKey found " << keys[keys.size() - 1];
-                } else if (_jsonString[i] == '}') {
+                } else if (_jsonString[i] == closingChar) {
                     if (depth == 1) {
                         depth -= 1;
                         valueSize.push_back(i + 1 - valueStart);
@@ -101,24 +84,22 @@ public:
                     } else {
                         depth -= 1;
                     }
+                    closingChar = '\0';
                 } else if (_jsonString[i] == ':') {
-                    if (_jsonString[i + 1] == '{' && depth == 0) {
+                    if ((_jsonString[i + 1] == '[' || _jsonString[i + 1] == '{') && depth == 0) {
                         depth += 1;
                         valueStart = i + 1;
                         valueIndex.push_back(valueStart);
-                    } else if (depth == 0) {
+                        closingChar = setClosingChar(_jsonString[i + 1]);
+                    } else if (depth == 0 && closingChar == '\0') {
                         isLeaf = true;
-                        valueStart = i + 1;
+                        valueStart = i + (_jsonString[i + 1] == '"' ? 2 : 1);
                         valueIndex.push_back(valueStart);
-                        //cout << "\nValue found " << valueIndex[valueIndex.size() - 1];
                     }
-                } else if (_jsonString[i] == ',' && isLeaf) {
-                    valueSize.push_back(i - valueStart);
-                    //cout << "\nLeaf closed " << valueSize[valueSize.size() - 1];
+                } else if ((_jsonString[i] == ',' || _jsonString[i] == '}') && isLeaf) {
+                    valueSize.push_back(i - (_jsonString[i - 1] == '"' ? 1 : 0) - valueStart);
                     isLeaf = false;
                 }
-                
-                //cout << "\n" << _jsonString[i] << " depth>" << " " << unsigned(depth) << " isLeaf>" << isLeaf;
             }
         }
     };
@@ -137,9 +118,11 @@ public:
 
     int getChildAsInt(string key);
 
+    bool getChildAsBool(string key);
+
     bool hasKey(string key);
 
-    string getChildAt(size_t index);
+    JsonObject getChildAt(size_t index);
 
     string print();
 
@@ -149,18 +132,9 @@ public:
 
     void addKVBool(string key, bool value);
 
-    void addKVAmount(string key, CAmount amount);
+    void addKVAmount(string key, CAmount amountSats);
 
     string toJson();
 };
-
-/*class Node
-{
-private:
-    string _key;
-    string _value;
-public:
-    Node(key, value) { _key = key; _value = value};
-}*/
 
 #endif

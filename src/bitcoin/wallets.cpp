@@ -36,26 +36,6 @@ void WalletMgr::setMasterSeed(uint8_t *masterSeed)
   _masterKey = Key::MakeMasterKey(masterSeed, ENTROPY_SIZE);
 }
 
-void WalletMgr::listAll()
-{
-  string response = runCommand(CMD_LIST_WALLETS, true);
-  JsonObject jsonOutput(response);
-  cout << "\n*** Wallets available ***\n" << response;
-  for (size_t i = 0; i < jsonOutput.length(); i++) {
-    string walletName = jsonOutput.getChildAt(i);
-    walletName.erase(
-        std::remove_if(
-            walletName.begin(), walletName.end(), [](char const c) {
-                return '"' == c;
-            }),
-            walletName.end()
-        );
-    CAmount balance = getBalance(walletName);
-    cout << "\t" << walletName;
-    printf(" balance %lld\n", balance);
-  }
-}
-
 bool WalletMgr::createSafeWallet(string password, char* wifKey)
 {
   createWallet(password, false);
@@ -430,4 +410,8 @@ string WalletMgr::createDescriptorImport(string descriptor, string label)
 
 const string WalletMgr::getMasterFingerprint() {
   return _masterKey.getFingerprint();
+}
+
+void WalletMgr::setName(string name) {
+  _name = name;
 }

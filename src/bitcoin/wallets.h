@@ -82,8 +82,6 @@ public:
 
     void unlockWallet();
 
-    void listAll();
-
     CAmount getBalance(string walletName);
 
     bool createSafeWallet(string password, char* wifKey);
@@ -130,6 +128,7 @@ public:
 
     const string getMasterFingerprint();
 
+    void setName(string name);
 };
 
 #endif

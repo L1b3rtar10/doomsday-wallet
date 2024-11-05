@@ -1,4 +1,9 @@
-#include <string>
+#include <stdio.h>
+#include <stdint.h>
+#include <ctype.h>
+#include <string.h>
+#include <iostream>
+#include <unistd.h>
 
 #include "../../src/bitcoin/jsonparser.h"
 #include "../../src/bitcoin/jsonparser.cpp" // Must include all files, .cpp included!
@@ -13,11 +18,12 @@ using namespace boost::unit_test;
 
 BOOST_AUTO_TEST_SUITE(Json)
 
+
 BOOST_AUTO_TEST_CASE(JsonIsArray)
 {
     JsonObject jsonObject("[\"a-single-string-array\"]");
     BOOST_CHECK(jsonObject.isArray() == 1);
-    string item = jsonObject.getChildAt(0);
+    JsonObject item = jsonObject.getChildAt(0);
     string expected ("\"a-single-string-array\"");
     BOOST_CHECK((item == expected) == true);
 }
@@ -107,14 +113,12 @@ BOOST_AUTO_TEST_CASE(arrayOfObjects)
 {
     JsonObject jsonObject("[{\"txid\":\"aa1cbc766299cb1d697b8316dec7054c6f94ac99e71a72a54e6241321b67c833\",\"vout\":1,\"address\":\"bc1qy3h8phrfchasu3yzmsu3wq2algqqc3t8m0w9gv\",\"label\":\"safe\",\"scriptPubKey\":\"0014246e70dc69c5fb0e4482dc3917015dfa000c4567\",\"amount\":0.03308520,\"confirmations\":3510,\"spendable\":false,\"solvable\":true,\"desc\":\"wpkh([0d55dd29/0'/0'/3']020f7b8b22c3bb6fbab3e248e39a221208c3459ba20c8047e11a52d65e7e826d79)#q3j4edy6\",\"reused\":false,\"safe\":true},{\"txid\":\"0776bd53a390b365d2ff62edf76ebafe7a198ec97d9b6712e0e8311a35d53090\",\"vout\":0,\"address\":\"bc1q7wv8pdd75rv3qd2zptsyxupx5xyrfn6tnz4qwq\",\"label\":\"safe\",\"scriptPubKey\":\"0014f39870b5bea0d91035420ae0437026a18834cf4b\",\"amount\":0.03500000,\"confirmations\":28476,\"spendable\":false,\"solvable\":true,\"desc\":\"wpkh([f39870b5]0226c7c6d768d46510e2f43c0d7afdfcbb1f85b7a11319b51b780af95cc8195793)#k5cgrwsx\",\"reused\":false,\"safe\":true},{\"txid\":\"3d6f0ccba9bca74ce5fac2026773c86fceb3372343c38a3430edb2388e54faaf\",\"vout\":16,\"address\":\"bc1q4xnv2hftsz82qtl4nzsjf3szv7yv3smy3nwme2\",\"label\":\"safe\",\"scriptPubKey\":\"0014a9a6c55d2b808ea02ff598a124c6026788c8c364\",\"amount\":0.04668265,\"confirmations\":24065,\"spendable\":false,\"solvable\":true,\"desc\":\"wpkh([0d55dd29/0'/0'/2']02bb5a0259c12bc4fb8c7ee505044e367e6c5715eac0ede2b0cb3d2514958a6a70)#t26gk727\",\"reused\":false,\"safe\":true}]");
     BOOST_CHECK(jsonObject.isArray() == 1);
-    string firstTx = jsonObject.getChildAt(0);
-    JsonObject firstTxJson (firstTx);
+    JsonObject firstTxJson = jsonObject.getChildAt(0);
     BOOST_CHECK(firstTxJson.getChildAsString("txid") == "\"aa1cbc766299cb1d697b8316dec7054c6f94ac99e71a72a54e6241321b67c833\"");
     BOOST_CHECK(firstTxJson.getChildAsInt("vout") == 1);
     BOOST_CHECK(firstTxJson.getChildAsInt("confirmations") == 3510);
 
-    string secondTx = jsonObject.getChildAt(1);
-    JsonObject secondTxJson (secondTx);
+    JsonObject secondTxJson = jsonObject.getChildAt(1);
     BOOST_CHECK(secondTxJson.getChildAsString("txid") == "\"0776bd53a390b365d2ff62edf76ebafe7a198ec97d9b6712e0e8311a35d53090\"");
     BOOST_CHECK(secondTxJson.getChildAsInt("vout") == 0);
 }
@@ -265,12 +269,59 @@ BOOST_AUTO_TEST_CASE(findUsedAddress)
     BOOST_CHECK(found == false);
 }
 
-/*BOOST_AUTO_TEST_CASE(testDescriptorInputFormat)
+BOOST_AUTO_TEST_CASE(testDescriptorInputFormat)
 {
     string descriptor = "wpkh([0d55dd29/0'/0'/3']020f7b8b22c3bb6fbab3e248e39a221208c3459ba20c8047e11a52d65e7e826d79)#q3j4edy6";
     string import = createDescriptorImport(descriptor, true, "");
     string test("[{\"desc\":\"wpkh([0d55dd29/0'\"'\"'/0'\"'\"'/3'\"'\"']020f7b8b22c3bb6fbab3e248e39a221208c3459ba20c8047e11a52d65e7e826d79)#q3j4edy6\",\"timestamp\":\"now\",\"internal\":true}]"); 
     BOOST_CHECK(import == test);
-}*/
+}
+
+
+BOOST_AUTO_TEST_CASE(testParseTransactions) {
+    string apiResponse("{\"result\":[{\"txid\":\"aa1cbc766299cb1d697b8316dec7054c6f94ac99e71a72a54e6241321b67c833\",\"vout\":1,\"address\":\"bc1qy3h8phrfchasu3yzmsu3wq2algqqc3t8m0w9gv\",\"label\":\"legacy\",\"scriptPubKey\":\"0014246e70dc69c5fb0e4482dc3917015dfa000c4567\",\"amount\":0.03308520,\"confirmations\":104656,\"spendable\":false,\"solvable\":false,\"reused\":false,\"safe\":true},{\"txid\":\"0a784c51b36fefb177376848295a1cf3e982f0d59b25439dab73ba8b72ce9b58\",\"vout\":22,\"address\":\"bc1q3vftufazx03ucp6sdwq9vq6hkkng036k34my24\",\"label\":\"legacy\",\"scriptPubKey\":\"00148b12be27a233e3cc07506b80560357b5a687c756\",\"amount\":0.05844221,\"confirmations\":94383,\"spendable\":false,\"solvable\":false,\"reused\":false,\"safe\":true}],\"error\":null,\"id\":\"curltest\"}");
+    JsonObject responseJson(apiResponse);
+    std::cout << endl;
+    JsonObject transactions = JsonObject(responseJson.getChildAsJsonObject("result"));
+
+    std::cout << endl;
+
+    BOOST_CHECK(responseJson.isArray() == false);
+    BOOST_CHECK(transactions.isArray() == true);
+
+    std::cout << endl;
+
+    JsonObject transaction = JsonObject(transactions.getChildAt(0));
+
+    std::cout << endl;
+
+    BOOST_CHECK(transaction.hasKey("txid") == true);
+    BOOST_CHECK(transaction.getChildAsString("txid") == string("aa1cbc766299cb1d697b8316dec7054c6f94ac99e71a72a54e6241321b67c833"));
+    BOOST_CHECK(transaction.getChildAsInt("vout") == 1);
+    BOOST_CHECK(transaction.getChildAsSatsAmount("amount") == 3308520);
+    BOOST_CHECK(transaction.getChildAsString("label") == "legacy");
+    BOOST_CHECK(transaction.getChildAsBool("spendable") == false);
+
+    JsonObject transaction2 = JsonObject(transactions.getChildAt(1));
+    BOOST_CHECK(transaction2.getChildAsBool("safe") == true);
+}
+
+BOOST_AUTO_TEST_CASE(createJson) {
+    CAmount amountSats = 500000;
+    JsonObject jsonObject = JsonObject();
+    jsonObject.addKVAmount("bc1anaddress", amountSats);
+    BOOST_CHECK(jsonObject.toJson() == "{\"bc1anaddress\":0.005000}");
+}
+
+BOOST_AUTO_TEST_CASE(parseJson) {
+    string response("[{\"txid\":\"aa1cbc766299cb1d697b8316dec7054c6f94ac99e71a72a54e6241321b67c833\",\"vout\":1,\"address\":\"bc1qy3h8phrfchasu3yzmsu3wq2algqqc3t8m0w9gv\",\"label\":\"legacy\",\"scriptPubKey\":\"0014246e70dc69c5fb0e4482dc3917015dfa000c4567\",\"amount\":0.03308520,\"confirmations\":105354,\"spendable\":false,\"solvable\":false,\"reused\":false,\"safe\":true},{\"txid\":\"0a784c51b36fefb177376848295a1cf3e982f0d59b25439dab73ba8b72ce9b58\",\"vout\":22,\"address\":\"bc1q3vftufazx03ucp6sdwq9vq6hkkng036k34my24\",\"label\":\"legacy\",\"scriptPubKey\":\"00148b12be27a233e3cc07506b80560357b5a687c756\",\"amount\":0.05844221,\"confirmations\":95081,\"spendable\":false,\"solvable\":false,\"reused\":false,\"safe\":true},{\"txid\":\"9ef1a4475188ab870ab6d768a9e7fb83cb2022b9a89ae296f8f998323fc4a06c\",\"vout\":8,\"address\":\"bc1q7aces9jfy6ykqawwn03yc9p24xt92gvctxvyf3\",\"label\":\"legacy\",\"scriptPubKey\":\"0014f77198164926896075ce9be24c142aa996552198\",\"amount\":0.04807444,\"confirmations\":73179,\"spendable\":false,\"solvable\":false,\"reused\":false,\"safe\":true},{\"txid\":\"0776bd53a390b365d2ff62edf76ebafe7a198ec97d9b6712e0e8311a35d53090\",\"vout\":0,\"address\":\"bc1q7wv8pdd75rv3qd2zptsyxupx5xyrfn6tnz4qwq\",\"label\":\"legacy\",\"scriptPubKey\":\"0014f39870b5bea0d91035420ae0437026a18834cf4b\",\"amount\":0.03500000,\"confirmations\":130320,\"spendable\":false,\"solvable\":false,\"reused\":false,\"safe\":true},{\"txid\":\"3d6f0ccba9bca74ce5fac2026773c86fceb3372343c38a3430edb2388e54faaf\",\"vout\":16,\"address\":\"bc1q4xnv2hftsz82qtl4nzsjf3szv7yv3smy3nwme2\",\"label\":\"legacy\",\"scriptPubKey\":\"0014a9a6c55d2b808ea02ff598a124c6026788c8c364\",\"amount\":0.04668265,\"confirmations\":125909,\"spendable\":false,\"solvable\":false,\"reused\":false,\"safe\":true},{\"txid\":\"a68d2b515435e4ead5ac26840027f79ab565f024138921b937218b6533a3f8bc\",\"vout\":9,\"address\":\"bc1qz79t3ntslq79g8sr9kj3keu8kczr450hkdwu3u\",\"label\":\"legacy\",\"scriptPubKey\":\"0014178ab8cd70f83c541e032da51b6787b6043ad1f7\",\"amount\":0.11786957,\"confirmations\":87004,\"spendable\":false,\"solvable\":false,\"reused\":false,\"safe\":true}]");
+    JsonObject json(response);
+
+    for (int i=0; i<json.length(); i++) {
+        cout << "Item "<< i << json.getChildAt(i).print() << endl;
+    }
+
+    BOOST_CHECK(json.length() == 6);
+}
 
 BOOST_AUTO_TEST_SUITE_END()

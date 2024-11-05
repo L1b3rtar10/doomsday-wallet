@@ -123,3 +123,17 @@ bool ParseFixedPoint(std::string_view val, int decimals, int64_t *amount_out)
 
     return true;
 }
+
+std::string escapeQuotes(const std::string &input) {
+    std::string result = input;
+    std::string toReplace = "\"";
+    std::string replacement = "\\\"";
+
+    size_t pos = result.find(toReplace);
+    while (pos != std::string::npos) {
+        result.replace(pos, toReplace.length(), replacement);
+        pos = result.find(toReplace, pos + replacement.length());
+    }
+    
+    return result;
+}
