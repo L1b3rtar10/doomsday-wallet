@@ -92,7 +92,7 @@ void JsonObject::addKVAmount(string key, CAmount amountSats) {
   types.push_back(NUMBER);
 }
 
-void JsonObject::addKVInt(string key, int value) {
+void JsonObject::addKVInt(string key, uint64_t value) {
   keys.push_back(key);
   values.push_back(to_string(value));
   types.push_back(NUMBER);
@@ -104,16 +104,23 @@ void JsonObject::addKVBool(string key, bool value) {
   types.push_back(BOOL);
 }
 
+void JsonObject::addJsonObject(JsonObject value) {
+  keys.push_back("");
+  values.push_back(value.toJson());
+  types.push_back(OBJ);
+}
+
 string JsonObject::toJson() {
   // Generates Json formatted string
   string jsonString("{");
   for (int i = 0; i < keys.size(); i++) {
-    string separator = "\"";
-    if (types[i] == NUMBER || types[i] == BOOL) {
-      separator = "";
+
+    if (types[i] == OBJ) {
+      jsonString += values[i];
+    } else {
+      string escapeSequence = types[i] == STRING ? "\"": "";
+      jsonString = jsonString + "\"" + keys[i] + "\":" + escapeSequence + values[i] + escapeSequence;
     }
-    
-    jsonString = jsonString + "\"" + keys[i] + "\":" + separator + values[i] + separator;
     if (i < keys.size() - 1) {
       jsonString += ",";
     }

@@ -5,6 +5,8 @@
 #include <string>
 #include <array>
 #include <algorithm>
+#include <vector>
+#include <chrono>
 
 #include "nodemanager.h"
 #include "jsonparser.h"
@@ -264,4 +266,53 @@ int NodeManager::calculateFees(const uint8_t txSize, uint8_t nBlocks) {
 
     int feeKbyte = JsonObject(apiResponse).getChildAsSatsAmount("feerate");
     return feeKbyte * txSize * COIN / 1024;
+}
+
+void NodeManager::createWatchonlyWallet(const string walletName) {
+    JsonObject parameters;
+
+    parameters.addKVString("wallet_name", walletName);
+    parameters.addKVBool("disable_private_keys", true);
+    parameters.addKVBool("blank", true);
+    parameters.addKVBool("avoid_reuse", true);
+    parameters.addKVBool("descriptors", true);
+    parameters.addKVBool("load_on_startup", true);
+
+    runApi(CREATE_WALLET, parameters.toJson(), "", true);
+}
+
+void NodeManager::importDescriptors(const string walletName, vector<string> descriptors) {
+    apiResponse.clear();
+    _operationInProgress.store(true);
+    apiThread = std::thread(&NodeManager::internalImportDescriptors, this, walletName, descriptors);  
+}
+
+void NodeManager::internalImportDescriptors(const string walletName, vector<string> descriptors) {
+
+    vector<string>::iterator descriptor;
+    string importDescriptorsList;
+    size_t index = 0;
+
+    using namespace std::chrono;
+    
+    uint64_t nowMillis = std::chrono::duration_cast<std::chrono::milliseconds>(system_clock::now().time_since_epoch()).count();
+
+    for (descriptor = descriptors.begin(); descriptor != descriptors.end(); descriptor++) {
+        runApi(GET_DESCRIPTOR_INFO, "[\"" + *descriptor + "\"]", "", false);
+        JsonObject descriptorInfo = JsonObject(apiResponse);
+        JsonObject descriptorData;
+        if(descriptorInfo.getChildAsString("error") == "null") {
+            string descriptor = descriptorInfo.getChildAsJsonObject("result").getChildAsString("descriptor");
+            descriptorData.addKVString("desc", descriptor);
+            descriptorData.addKVInt("timestamp", nowMillis);
+            descriptorData.addKVString("timestamp", "now");
+            importDescriptorsList += descriptorData.toJson();
+            if (++index != descriptors.size()) {
+                importDescriptorsList += ',';
+            }
+        }
+        cout << apiResponse << endl;
+    }
+    runApi(IMPORT_DESCRIPTORS, "[[" + importDescriptorsList + "]]", "wallet/" + walletName, false);
+    _operationInProgress.store(false);
 }

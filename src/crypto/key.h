@@ -10,12 +10,13 @@
 #define ENTROPY_SIZE 64
 #define MASTER_HASH_KEY {'B','i','t','c','o','i','n',' ','s','e','e','d'}
 
+/* https://electrum.readthedocs.io/en/latest/xpub_version_bytes.html */
 #define MASTER_FINGERPRINT {0x00, 0x00, 0x00, 0x00}
 #define MASTER_PARENT_SIGNATURE {0x00, 0x00, 0x00, 0x00}
 #define MIN_HARDENED_CHILD_INDEX 2147483648
 
-#define VERSION_BIP44_PRIV {0x04, 0x88, 0xAD, 0xE4}
-#define VERSION_BIP44_PUB {0x04, 0x88, 0xB2, 0x1E}
+#define VERSION_BIP32_PRIV {0x04, 0x88, 0xAD, 0xE4}
+#define VERSION_BIP32_PUB {0x04, 0x88, 0xB2, 0x1E}
 
 #define VERSION_BIP49_PRIV {0x04, 0x9D, 0x78, 0x78}
 #define VERSION_BIP49_PUB {0x04, 0x9D, 0x7C, 0xB2}
@@ -30,6 +31,7 @@
 #define FINGERPRINT_LENGTH 8
 
 enum Keytype {
+    BIP_32 = 32,
     BIP_44 = 44,
     BIP_49 = 49,
     BIP_84 = 84,
@@ -81,7 +83,14 @@ class Key {
             const uint32_t index, const uint8_t depth, const uint8_t* parentFingerprint, const Keytype keyType,
             bool isMaster, const char* parentDescriptor, const uint8_t descriptorLength);
 
-        static Key MakeMasterKey(uint8_t *masterSeed, uint8_t seedLength);
+        ~Key() {
+            secureErase(keyMaterial, sizeof(keyMaterial));
+            secureErase(_parentFingerprint, sizeof(_parentFingerprint));
+            secureErase(&pubkey, sizeof(pubkey));
+            secureErase(_descriptor, MAX_DESCRIPTOR_LENGTH);
+        }
+
+        static Key MakeMasterKey(uint8_t *masterSeed, uint8_t seedLength, Keytype keyType);
 
         secp256k1_pubkey& getPubKey();
 
@@ -95,7 +104,7 @@ class Key {
 
         void exportXpubKey(char* serialisedKey, size_t &serialisedLength);
 
-        const string exportXprivKey();
+        void exportXprivKey(char* serialisedKey, size_t &serialisedLength);
 
         void deriveChildKey(const uint32_t index, Key& outKey);
 
@@ -111,9 +120,9 @@ class Key {
 
         void getDescriptor(char* descriptor);
 
-        void exportDescriptor(char* descriptor);
+        void exportDescriptor(char* descriptor, AddressType addressType);
 
-        void exportAddressDescriptor(Keytype keyType, uint32_t accountNumber, AddressType addressType, char* descriptor);
+        void exportAccountDescriptor(Keytype keyType, uint32_t accountNumber, AddressType addressType, char* descriptor);
 
         void erase();
 

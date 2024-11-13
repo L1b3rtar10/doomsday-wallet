@@ -24,8 +24,6 @@
 #include "../../src/crypto/byteutils.cpp"
 #include "../../src/crypto/key.h"
 #include "../../src/crypto/key.cpp"
-#include "../../src/features/descriptors.h"
-#include "../../src/features/descriptors.cpp"
 
 // TEST VECTORS FROM https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki#test-vectors
 #define TEST_VECTOR_1 {0x00,0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,0x09,0x0a,0x0b,0x0c,0x0d,0x0e,0x0f}    
@@ -384,7 +382,8 @@ BOOST_AUTO_TEST_CASE( encodeWIFKey ) {
     }
 }
 
-BOOST_AUTO_TEST_CASE( BIP44 ) {
+/* https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki */
+BOOST_AUTO_TEST_CASE( BIP32 ) {
     const char* xPubKeyTest1 = "xpub661MyMwAqRbcFtXgS5sYJABqqG9YLmC4Q1Rdap9gSE8NqtwybGhePY2gZ29ESFjqJoCu1Rupje8YtGqsefD265TMg7usUDFdp6W1EGMcet8";
     const char* xPrivKeyTest1 = "xprv9s21ZrQH143K3QTDL4LXw2F7HEK3wJUD2nW2nRk4stbPy6cq3jPPqjiChkVvvNKmPGJxWUtg6LnF5kejMRNNU3TGtRBeJgk33yuGBxrMPHi";
     const char* xPubKeyTestAccount1 = "xpub68Gmy5EdvgibQVfPdqkBBCHxA5htiqg55crXYuXoQRKfDBFA1WEjWgP6LHhwBZeNK1VTsfTFUHCdrfp1bgwQ9xv5ski8PX9rL2dZXvgGDnw";
@@ -394,44 +393,46 @@ BOOST_AUTO_TEST_CASE( BIP44 ) {
 
     uint8_t testVector1[] = TEST_VECTOR_1;
     
-    Key masterKey = Key::MakeMasterKey(testVector1, sizeof(testVector1));
+    Key masterKey = Key::MakeMasterKey(testVector1, sizeof(testVector1), BIP_32);
 
     char descriptor[MAX_DESCRIPTOR_LENGTH] = {'\0'}; 
     masterKey.getDescriptor(descriptor);
 
     char xPubKey[MAX_DESCRIPTOR_LENGTH] = {'\0'};
+    char xPrivKey[MAX_DESCRIPTOR_LENGTH] = {'\0'};
     size_t keyLength = 0;
+    
     masterKey.exportXpubKey(xPubKey, keyLength);
+    masterKey.exportXprivKey(xPrivKey, keyLength);
 
-    string xPrivKey = masterKey.exportXprivKey();
-
-    BOOST_CHECK(strcmp(xPubKeyTest1, xPubKey) == 0);
-    BOOST_CHECK(xPrivKeyTest1 == xPrivKey);
+    BOOST_CHECK(strcmp(xPubKeyTest1,xPubKey) == 0);
+    BOOST_CHECK(strcmp(xPrivKeyTest1,xPrivKey) == 0);
 
     Key accountKey;
     masterKey.deriveChildKey(MIN_HARDENED_CHILD_INDEX, accountKey);
     memset(xPubKey, '\0', MAX_DESCRIPTOR_LENGTH);
 
     accountKey.exportXpubKey(xPubKey, keyLength);
-    xPrivKey = accountKey.exportXprivKey();
-
-    BOOST_CHECK(strcmp(xPubKeyTestAccount1, xPubKey) == 0);
-    BOOST_CHECK(xPrivKeyTestAccount1 == xPrivKey);
+    accountKey.exportXprivKey(xPrivKey, keyLength);
+    
+    BOOST_CHECK(strcmp(xPubKeyTestAccount1,xPubKey) == 0);
+    BOOST_CHECK(strcmp(xPrivKeyTestAccount1,xPrivKey) == 0);
 
     Key chainKey;
     accountKey.deriveChildKey(1, chainKey);
     memset(xPubKey, '\0', MAX_DESCRIPTOR_LENGTH);
     
     chainKey.exportXpubKey(xPubKey, keyLength);
-    xPrivKey = chainKey.exportXprivKey();
+    chainKey.exportXprivKey(xPrivKey, keyLength);
 
     BOOST_CHECK(strcmp(xPubKeyTestChain1, xPubKey) == 0);
-    BOOST_CHECK(xPrivKeyTestChain1 == xPrivKey);
+    BOOST_CHECK(strcmp(xPrivKeyTestChain1, xPrivKey) == 0);
 }
 
+
 BOOST_AUTO_TEST_CASE( BIP84 ) {
-    string xPrivAccount0 = "zprvAdG4iTXWBoARxkkzNpNh8r6Qag3irQB8PzEMkAFeTRXxHpbF9z4QgEvBRmfvqWvGp42t42nvgGpNgYSJA9iefm1yYNZKEm7z6qUWCroSQnE";
-    string xPrivReceivingAddress0 = "0330d54fd0dd420a6e5f8d3624f5f3482cae350f79d5f0753bf5beef9c2d91af3c";
+    const char* xPrivAccount0 = "zprvAdG4iTXWBoARxkkzNpNh8r6Qag3irQB8PzEMkAFeTRXxHpbF9z4QgEvBRmfvqWvGp42t42nvgGpNgYSJA9iefm1yYNZKEm7z6qUWCroSQnE";
+    const char* xPrivReceivingAddress0 = "0330d54fd0dd420a6e5f8d3624f5f3482cae350f79d5f0753bf5beef9c2d91af3c";
 
     uint8_t masterSeed[] = {
         0x5e, 0xb0, 0x0b, 0xbd, 0xdc, 0xf0, 0x69, 0x08,
@@ -444,7 +445,7 @@ BOOST_AUTO_TEST_CASE( BIP84 ) {
         0x8d, 0x48, 0xb2, 0xd2, 0xce, 0x9e, 0x38, 0xe4
     };
 
-    Key masterKey = Key::MakeMasterKey(masterSeed, sizeof(masterSeed));
+    Key masterKey = Key::MakeMasterKey(masterSeed, sizeof(masterSeed), BIP_84);
 
     Key bip84PurposeKey;
     masterKey.deriveChildKey(MIN_HARDENED_CHILD_INDEX + 84, bip84PurposeKey);
@@ -457,13 +458,15 @@ BOOST_AUTO_TEST_CASE( BIP84 ) {
     Key addressKey;
     receivingKey.deriveChildKey(0, addressKey);
 
-    string xPrivKey = accountKey.exportXprivKey();
+    char xPrivKey[MAX_DESCRIPTOR_LENGTH] = {'\0'};
+    size_t keyLength = 0;
+    accountKey.exportXprivKey(xPrivKey, keyLength);
 
-    BOOST_CHECK(xPrivKey == xPrivAccount0);
+    BOOST_CHECK(strcmp(xPrivKey, xPrivAccount0) == 0);
 }
 
 BOOST_AUTO_TEST_CASE( BIP49 ) {
-    string xPrivAccount0 = "yprvAHwhK6RbpuS3dgCYHM5jc2ZvEKd7Bi61u9FVhYMpgMSuZS613T1xxQeKTffhrHY79hZ5PsskBjcc6C2V7DrnsMsNaGDaWev3GLRQRgV7hxF";
+    const char* xPrivAccount0 = "yprvAHwhK6RbpuS3dgCYHM5jc2ZvEKd7Bi61u9FVhYMpgMSuZS613T1xxQeKTffhrHY79hZ5PsskBjcc6C2V7DrnsMsNaGDaWev3GLRQRgV7hxF";
 
     uint8_t masterSeed[] = {
         0x5e, 0xb0, 0x0b, 0xbd, 0xdc, 0xf0, 0x69, 0x08,
@@ -476,7 +479,7 @@ BOOST_AUTO_TEST_CASE( BIP49 ) {
         0x8d, 0x48, 0xb2, 0xd2, 0xce, 0x9e, 0x38, 0xe4
     };
 
-    Key masterKey = Key::MakeMasterKey(masterSeed, sizeof(masterSeed));
+    Key masterKey = Key::MakeMasterKey(masterSeed, sizeof(masterSeed), BIP_49);
     Key bip49PurposeKey;
     masterKey.deriveChildKey(MIN_HARDENED_CHILD_INDEX + 49, bip49PurposeKey);
     Key coinTypeKey;
@@ -488,9 +491,11 @@ BOOST_AUTO_TEST_CASE( BIP49 ) {
     Key addressKey;
     receivingKey.deriveChildKey(0, addressKey);
 
-    string privKey = accountKey.exportXprivKey();
+    char xPrivKey[MAX_DESCRIPTOR_LENGTH] = {'\0'};
+    size_t keyLength = 0;
+    accountKey.exportXprivKey(xPrivKey, keyLength);
 
-    BOOST_CHECK(privKey == xPrivAccount0);
+    BOOST_CHECK(strcmp(xPrivKey,xPrivAccount0) == 0);
 }
 
 BOOST_AUTO_TEST_CASE( calculateAddressFromSeed ) {
@@ -505,11 +510,13 @@ BOOST_AUTO_TEST_CASE( calculateAddressFromSeed ) {
         0x8d, 0x48, 0xb2, 0xd2, 0xce, 0x9e, 0x38, 0xe4
     };
 
-    Key masterKey = Key::MakeMasterKey(masterSeed, sizeof(masterSeed));
+    Key masterKey = Key::MakeMasterKey(masterSeed, sizeof(masterSeed), BIP_44);
 
     char xPubKey[MAX_DESCRIPTOR_LENGTH] = {'\0'};
 
-    string xPrivKey = masterKey.exportXprivKey();
+    char xPrivKey[MAX_DESCRIPTOR_LENGTH] = {'\0'};
+    size_t keyLength = 0;
+    masterKey.exportXprivKey(xPrivKey, keyLength);
     char descriptor[MAX_DESCRIPTOR_LENGTH] = {'\0'};
 
     Key purposeKey;
@@ -523,38 +530,9 @@ BOOST_AUTO_TEST_CASE( calculateAddressFromSeed ) {
     Key addressKey;
     receivingKey.deriveChildKey(0, addressKey);
 
-    xPrivKey = accountKey.exportXprivKey();
-
-    xPrivKey = addressKey.exportXprivKey();
-    size_t keyLength = 0;
+    addressKey.exportXprivKey(xPrivKey, keyLength);
     addressKey.exportXpubKey(xPubKey, keyLength);
-    receivingKey.exportDescriptor(descriptor);
-}
-
-BOOST_AUTO_TEST_CASE( generateBip44AddressDescriptors ) {
-    uint8_t masterSeed[] = {
-        0x5e, 0xb0, 0x0b, 0xbd, 0xdc, 0xf0, 0x69, 0x08,
-        0x48, 0x89, 0xa8, 0xab, 0x91, 0x55, 0x56, 0x81,
-        0x65, 0xf5, 0xc4, 0x53, 0xcc, 0xb8, 0x5e, 0x70,
-        0x81, 0x1a, 0xae, 0xd6, 0xf6, 0xda, 0x5f, 0xc1,
-        0x9a, 0x5a, 0xc4, 0x0b, 0x38, 0x9c, 0xd3, 0x70,
-        0xd0, 0x86, 0x20, 0x6d, 0xec, 0x8a, 0xa6, 0xc4,
-        0x3d, 0xae, 0xa6, 0x69, 0x0f, 0x20, 0xad, 0x3d,
-        0x8d, 0x48, 0xb2, 0xd2, 0xce, 0x9e, 0x38, 0xe4
-    };
-    string xPubReceiveDescriptor = "[73c5da0a/44h/0h/0h]xpub6ELHKXNimKbxMCytPh7EdC2QXx46T9qLDJWGnTraz1H9kMMFdcduoU69wh9cxP12wDxqAAfbaESWGYt5rREsX1J8iR2TEunvzvddduAPYcY/0/*";
-    string xPubChangeDescriptor  = "[73c5da0a/44h/0h/0h]xpub6ELHKXNimKbxNg8CV7R31x98ZCPAAT2CrHnZ1ZovqMcvvjnnHmRvLtrpoAs8oBB5YghZf5vzjWURbUBqjXzN3RsEonB3LejZ8oHr3PEJnQj/1/*";
-
-    Key masterKey = Key::MakeMasterKey(masterSeed, sizeof(masterSeed));
-
-    char receivingDescriptor[MAX_DESCRIPTOR_LENGTH] = {'\0'};
-    char changeDescriptor[MAX_DESCRIPTOR_LENGTH] = {'\0'};
-
-    masterKey.exportAddressDescriptor(BIP_44, 0, RECEIVING, receivingDescriptor);
-    masterKey.exportAddressDescriptor(BIP_44, 0, CHANGE, changeDescriptor);
-
-    BOOST_CHECK(string(receivingDescriptor) == xPubReceiveDescriptor);
-    BOOST_CHECK(string(changeDescriptor) == xPubChangeDescriptor);
+    receivingKey.exportDescriptor(descriptor, CHANGE);
 }
 
 BOOST_AUTO_TEST_CASE( generateBip49AddressDescriptors ) {
@@ -569,19 +547,19 @@ BOOST_AUTO_TEST_CASE( generateBip49AddressDescriptors ) {
         0x8d, 0x48, 0xb2, 0xd2, 0xce, 0x9e, 0x38, 0xe4
     };
 
-    string xPubReceiveDescriptor = "[73c5da0a/49h/0h/0h]ypub6Ynvx7RLNYgWzFGM8aeU43hFNjTh7u5Grrup7Ryu2nKZ1Y8FWKaJZXiUrkJSnMmGVNBoVH1DNDtQ32tR4YFDRSpSUXjjvsiMnCvoPHVWXJP/0/*";
-    string xPubChangeDescriptor  = "[73c5da0a/49h/0h/0h]ypub6Ynvx7RLNYgX2yTF9GS9Eb1Wb444qVB62cxDpQF1ixXUHNMaDUvY67zpnwo2CMZXCrHtaEKHYQ4bqEKefq4R5kqUFhfRvMCn1TuQ5yJJfr2/1/*";
+    const char* xPubReceiveDescriptor = "[73c5da0a/49h/0h/0h]ypub6Ww3ibxVfGzLrAH1PNcjyAWenMTbbAosGNB6VvmSEgytSER9azLDWCxoJwW7Ke7icmizBMXrzBx9979FfaHxHcrArf3zbeJJJUZPf663zsP/0/*";
+    const char* xPubChangeDescriptor  = "[73c5da0a/49h/0h/0h]ypub6Ww3ibxVfGzLrAH1PNcjyAWenMTbbAosGNB6VvmSEgytSER9azLDWCxoJwW7Ke7icmizBMXrzBx9979FfaHxHcrArf3zbeJJJUZPf663zsP/1/*";
 
-    Key masterKey = Key::MakeMasterKey(masterSeed, sizeof(masterSeed));
+    Key masterKey = Key::MakeMasterKey(masterSeed, sizeof(masterSeed), BIP_49);
 
     char receivingDescriptor[MAX_DESCRIPTOR_LENGTH] = {'\0'};
     char changeDescriptor[MAX_DESCRIPTOR_LENGTH] = {'\0'};
 
-    masterKey.exportAddressDescriptor(BIP_49, 0, RECEIVING, receivingDescriptor);
-    masterKey.exportAddressDescriptor(BIP_49, 0, CHANGE, changeDescriptor);
+    masterKey.exportAccountDescriptor(BIP_49, 0, RECEIVING, receivingDescriptor);
+    masterKey.exportAccountDescriptor(BIP_49, 0, CHANGE, changeDescriptor);
 
-    BOOST_CHECK(string(receivingDescriptor) == xPubReceiveDescriptor);
-    BOOST_CHECK(string(changeDescriptor) == xPubChangeDescriptor);
+    BOOST_CHECK(strcmp(receivingDescriptor, xPubReceiveDescriptor) == 0);
+    BOOST_CHECK(strcmp(changeDescriptor, xPubChangeDescriptor) == 0);
 }
 
 BOOST_AUTO_TEST_CASE( generateBip84AddressDescriptors ) {
@@ -596,43 +574,16 @@ BOOST_AUTO_TEST_CASE( generateBip84AddressDescriptors ) {
         0x8d, 0x48, 0xb2, 0xd2, 0xce, 0x9e, 0x38, 0xe4
     };
 
-    string xPubReceiveDescriptor = "[73c5da0a/84h/0h/0h]zpub6u4KbU8TSgNuZSxzv7HaGq5Tk361gMHdZxnM4UYuwzg5CMLcNytzhobitV4Zq6vWtWHpG9QijsigkxAzXvQWyLRfLq1L7VxPP1tky1hPfD4/0/*";
-    string xPubChangeDescriptor  = "[73c5da0a/84h/0h/0h]zpub6u4KbU8TSgNuco8HzL1LqM2ePjv8wrxUKENTtfambyxBbACZg5qvqqzAPwwAopTuxkrQzs661k5A6Q1P8b25a9DDJXYXDpN4KPwxygrx9Py/1/*";
+    string xPubReceiveDescriptor = "[73c5da0a/84h/0h/0h]zpub6rFR7y4Q2AijBEqTUquhVz398htDFrtymD9xYYfG1m4wAcvPhXNfE3EfH1r1ADqtfSdVCToUG868RvUUkgDKf31mGDtKsAYz2oz2AGutZYs/0/*";
+    string xPubChangeDescriptor  = "[73c5da0a/84h/0h/0h]zpub6rFR7y4Q2AijBEqTUquhVz398htDFrtymD9xYYfG1m4wAcvPhXNfE3EfH1r1ADqtfSdVCToUG868RvUUkgDKf31mGDtKsAYz2oz2AGutZYs/1/*";
 
-    Key masterKey = Key::MakeMasterKey(masterSeed, sizeof(masterSeed));
-
-    char receivingDescriptor[MAX_DESCRIPTOR_LENGTH] = {'\0'};
-    char changeDescriptor[MAX_DESCRIPTOR_LENGTH] = {'\0'};
-
-    masterKey.exportAddressDescriptor(BIP_84, 0, RECEIVING, receivingDescriptor);
-    masterKey.exportAddressDescriptor(BIP_84, 0, CHANGE, changeDescriptor);
-
-    BOOST_CHECK(string(receivingDescriptor) == xPubReceiveDescriptor);
-    BOOST_CHECK(string(changeDescriptor) == xPubChangeDescriptor);
-}
-
-BOOST_AUTO_TEST_CASE( generateBip86AddressDescriptors ) {
-    uint8_t masterSeed[] = {
-        0x5e, 0xb0, 0x0b, 0xbd, 0xdc, 0xf0, 0x69, 0x08,
-        0x48, 0x89, 0xa8, 0xab, 0x91, 0x55, 0x56, 0x81,
-        0x65, 0xf5, 0xc4, 0x53, 0xcc, 0xb8, 0x5e, 0x70,
-        0x81, 0x1a, 0xae, 0xd6, 0xf6, 0xda, 0x5f, 0xc1,
-        0x9a, 0x5a, 0xc4, 0x0b, 0x38, 0x9c, 0xd3, 0x70,
-        0xd0, 0x86, 0x20, 0x6d, 0xec, 0x8a, 0xa6, 0xc4,
-        0x3d, 0xae, 0xa6, 0x69, 0x0f, 0x20, 0xad, 0x3d,
-        0x8d, 0x48, 0xb2, 0xd2, 0xce, 0x9e, 0x38, 0xe4
-    };
-
-    string xPubReceiveDescriptor = "[73c5da0a/86h/0h/0h]xpub6EmR4gT2Lt7tseJfws6sm6Mvkc1yEoF6WiZS7Ppxj39xqy8VbCbCenCsWmFnwupZoq1Mq1EnAQtq38bb8RnwAE5epc965k8cjqKpi8NNGZY/0/*";
-    string xPubChangeDescriptor  = "[73c5da0a/86h/0h/0h]xpub6EmR4gT2Lt7tvAFNteXrigLhA3FQtwkCrkfZri9p7n9ggSQQkhQNUDhnTS2epuDHmuDAtKLTbMr27NeyM6UEz831o4d8KSFa5oHodvs4pqj/1/*";
-
-    Key masterKey = Key::MakeMasterKey(masterSeed, sizeof(masterSeed));
+    Key masterKey = Key::MakeMasterKey(masterSeed, sizeof(masterSeed), BIP_84);
 
     char receivingDescriptor[MAX_DESCRIPTOR_LENGTH] = {'\0'};
     char changeDescriptor[MAX_DESCRIPTOR_LENGTH] = {'\0'};
 
-    masterKey.exportAddressDescriptor(BIP_86, 0, RECEIVING, receivingDescriptor);
-    masterKey.exportAddressDescriptor(BIP_86, 0, CHANGE, changeDescriptor);
+    masterKey.exportAccountDescriptor(BIP_84, 0, RECEIVING, receivingDescriptor);
+    masterKey.exportAccountDescriptor(BIP_84, 0, CHANGE, changeDescriptor);
 
     BOOST_CHECK(string(receivingDescriptor) == xPubReceiveDescriptor);
     BOOST_CHECK(string(changeDescriptor) == xPubChangeDescriptor);

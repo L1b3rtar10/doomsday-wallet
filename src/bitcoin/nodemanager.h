@@ -18,6 +18,8 @@ using namespace std;
 static const char* GET_BLOCKCHAIN_INFO = "getblockchaininfo";
 static const char* LIST_WALLETS = "listwallets";
 static const char* LIST_DESCRIPTORS = "listdescriptors";
+static const char* GET_DESCRIPTOR_INFO = "getdescriptorinfo";
+static const char* IMPORT_DESCRIPTORS = "importdescriptors";
 static const char* GET_WALLET_INFO = "getwalletinfo";
 static const char* LOAD_WALLET = "loadwallet";
 static const char* WALLET_PASSPHRASE = "walletpassphrase";
@@ -49,6 +51,12 @@ class NodeManager {
         std::thread apiThread;
 
         string sendAmountToAddress(CAmount amountSats, string address, string changeAddress);
+
+        void createWatchonlyWallet(const string walletName);
+
+        void importDescriptors(const string walletName, const vector<string> descriptors);
+
+        void internalImportDescriptors(const string walletName, const vector<string> descriptors);
 
     private:
 

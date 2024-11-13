@@ -1,16 +1,13 @@
 #include <unistd.h>
-#include <ncurses.h>
-
 #include <iostream>
-#include <thread>
-#include <atomic>
 
 #include "features/random_generator.h"
 #include "features/seed_generator.h"
-#include "features/descriptors.h"
 #include "input/input_mgr.h"
 #include "bitcoin/wallets.h"
 #include "bitcoin/nodemanager.h"
+#include "bitcoin/stringparser.h"
+#include "crypto/byteutils.h"
 
 #define EXIT_CODE 'q'
 
@@ -24,7 +21,7 @@ string walletIsReadyString(optional<WalletMgr> wallet) {
     return menu;
 }
 
-void createMenu(optional<WalletMgr> wallet, optional<DescriptorMgr> descriptorMgr) {
+void createMenu(optional<WalletMgr> wallet) {
     
     std::cout << "\033[2J\033[1;1H";
     std::cout << "* * * * * * * * * * * * * * *\n";
@@ -33,11 +30,7 @@ void createMenu(optional<WalletMgr> wallet, optional<DescriptorMgr> descriptorMg
     std::cout << "\n";
     std::cout << "-- 1. Initialise master key" << walletIsReadyString(wallet) << endl;
 
-    if (descriptorMgr.has_value() && descriptorMgr->getAccountKey().has_value()) {
-        char descriptorOutput[MAX_DESCRIPTOR_LENGTH] = {'\0'};
-        descriptorMgr->getAccountKey()->getDescriptor(descriptorOutput);
-        std::cout << "-- 2. Reference account keys: " << descriptorOutput << endl;
-    } else {
+    if (wallet.has_value()) {
         std::cout << "-- 2. Generate account keys" << endl;
     }
     std::cout << "-- 3. List descriptors\n";
@@ -49,7 +42,7 @@ void createMenu(optional<WalletMgr> wallet, optional<DescriptorMgr> descriptorMg
     std::cout << "-- 9. Get wallet info\n";
     std::cout << "-- t. Legacy transaction\n";
     std::cout << "-- q. Exit\n";
-    std::cout << "Please select an option: ";
+    std::cout << "\nPlease select an option: ";
 }
 
 void randomSeedGeneration() {
@@ -99,7 +92,6 @@ int main(int argc, char **argv) {
     curl_global_init(CURL_GLOBAL_DEFAULT);
 
     SeedGenerator seedGenerator = SeedGenerator::Make(argv[1]);
-    optional<DescriptorMgr> descriptorMgr = nullopt;
     optional<WalletMgr> wallet = nullopt;
     optional<WalletMgr> lightningWallet = nullopt;
 
@@ -113,7 +105,7 @@ int main(int argc, char **argv) {
             randomSeedGeneration();
             exit(0);
         } else {
-            createMenu(wallet, descriptorMgr);
+            createMenu(wallet);
             choice = getchar();
             switch (choice) {
                 case '1': {
@@ -124,7 +116,8 @@ int main(int argc, char **argv) {
                     std::cout << "\n\nSeed generated, press return to continue..." << endl;
                     wallet = WalletMgr::Make("doomsday_wallet", masterSeed);
                     lightningWallet = WalletMgr::Make("lightning_wallet", lightningMasterSeed);
-                    descriptorMgr = DescriptorMgr(masterSeed, ENTROPY_SIZE);                       
+
+                    print_string(masterSeed, ENTROPY_SIZE);                     
                     
                     break;
                 }
@@ -156,10 +149,11 @@ int main(int argc, char **argv) {
                     break;
                 case '4':
                     if (wallet.has_value()) {
+                        char xprivKey[MAX_DESCRIPTOR_LENGTH] = {'\0'}; 
                         Key masterLightningKey = lightningWallet->exportMasterPrivKey();
-                        lightningWallet->generateAccountDescriptors(0);
-                        std::cout << endl;
-                        std::cout << "Lightning private key > " << masterLightningKey.exportXprivKey() << endl;
+                        size_t length = 0;
+                        masterLightningKey.exportXprivKey(xprivKey, length);
+                        std::cout << "Lightning private key > " << xprivKey << endl;
                         char c = getchar();
                         std::cout << endl;
                         std::cout << "This is the key to create a lightning node hot wallet." << endl;
@@ -169,36 +163,34 @@ int main(int argc, char **argv) {
                         std::cout << "Wallet must be initialised first." << endl;
                     }
                     break;
-                case '5':
+                case '5': {
                     if (wallet.has_value()) {
-                        string createWalletName("");
+                        string walletName("");
                         cout << "Insert a name for your wallet > ";
-                        cin >> createWalletName;
-                        cout << endl << "Wallet name is " << createWalletName << endl;
-                        wallet->setName(createWalletName);
-
-                        nodeManager.runApi(CREATE_WALLET, string("[")+"\"" + createWalletName + "\"]", "", true);
+                        cin >> walletName;
+                        
+                        nodeManager.createWatchonlyWallet(walletName);
                         while (nodeManager.operationIsInProgress()) {
                             backgroundShowProgress();                             
                         }
                         nodeManager.apiThread.join();
                         
-                        cout << endl << "La risposta " << nodeManager.apiResponse << endl;
-        
                         vector<string> descriptors = wallet->getDescriptors();
-                        vector<string>::iterator descriptor;
-                        for (descriptor = descriptors.begin(); descriptor != descriptors.end(); descriptor++) {
-                            optional<JsonObject> descriptorInfo = wallet->getDescriptorInfo(*descriptor);
-                            if(descriptorInfo.has_value()) {
-                                string descriptorImport = descriptorInfo->getChildAsString("descriptor");
-                                string response = wallet->importDescriptor(descriptorImport, "test_import");
-                            }
+                        if (descriptors.size() == 0) {
+                            cout << "You must generate account keys first" << endl;
+                            break;
                         }
+                        nodeManager.importDescriptors(walletName, descriptors);
+                        while (nodeManager.operationIsInProgress()) {
+                            backgroundShowProgress();                             
+                        }
+                        nodeManager.apiThread.join();                        
                             
                     } else {
-                        std::cout << "Master key must be initialised first.";
+                        cout << "Master key must be initialised first.";
                     }
-                    break;
+                }
+                break;
                 case '6':
                     
                     nodeManager.runApi(LIST_WALLETS, "[]", "", true);
@@ -207,7 +199,6 @@ int main(int argc, char **argv) {
                         backgroundShowProgress();                             
                     }
                     nodeManager.apiThread.join();
-                    cout << endl << "La risposta " << nodeManager.apiResponse << endl;
                     break;
 
                 case '7':
@@ -219,20 +210,12 @@ int main(int argc, char **argv) {
                     nodeManager.apiThread.join();
                     cout << endl << "La risposta " << nodeManager.apiResponse << endl;
 
-                    nodeManager.runApi(WALLET_PASSPHRASE, "[\"laralara\", 60]", "wallet/doomsday_wallet", true);
+                    nodeManager.runApi(LIST_DESCRIPTORS, "[]", "wallet/doomsday_wallet", true);
                     while (nodeManager.operationIsInProgress()) {
                         backgroundShowProgress();                             
                     }
                     nodeManager.apiThread.join();
-                    cout << endl << "La risposta " << nodeManager.apiResponse << endl;
-
-                    nodeManager.runApi(LIST_DESCRIPTORS, "[]", "wallet/doomsday_wallet", true); // Senza / finale!!!
-                    while (nodeManager.operationIsInProgress()) {
-                        backgroundShowProgress();                             
-                    }
-                    nodeManager.apiThread.join();
-                    cout << endl << "La risposta " << nodeManager.apiResponse << endl;
-
+                    
                     break;
 
                 case '8':
@@ -249,7 +232,6 @@ int main(int argc, char **argv) {
                     string walletInfoName("");
                     cout << "Insert the wallet's name > " << endl;
                     cin >> walletInfoName;
-                    //cout.flush();
 
                     nodeManager.runApi(GET_WALLET_INFO, "[]", string("wallet/") + walletInfoName, true);
                     while (nodeManager.operationIsInProgress()) {
@@ -282,24 +264,6 @@ int main(int argc, char **argv) {
 
                     break;
                 }
-                /*
-                    if (wallet.has_value()) {
-                        wallet->getBlockchainInfo();
-                        wallet->createWallet("xxxxxxxx", true);
-                        vector<string> descriptors = wallet->getDescriptors();
-                        vector<string>::iterator descriptor;
-                        for (descriptor = descriptors.begin(); descriptor != descriptors.end(); descriptor++) {
-                            optional<JsonObject> descriptorInfo = wallet->getDescriptorInfo(*descriptor);
-                            if(descriptorInfo.has_value()) {
-                                string descriptorImport = descriptorInfo->getChildAsString("descriptor");
-                                string response = wallet->importDescriptor(descriptorImport, "test_import");
-                            }
-                        }
-                        
-                    } else {
-                        std::cout << "Master key must be initialised first.";
-                    }
-                */
             }
             getchar();
             std::cout << "\nPress return to continue k... " << endl;

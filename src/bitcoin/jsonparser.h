@@ -16,6 +16,7 @@ typedef enum JsonType {
     STRING = 0,
     NUMBER = 1,
     BOOL = 2,
+    OBJ = 3,
 };
 
 class JsonObject
@@ -128,11 +129,13 @@ public:
 
     void addKVString(string key, string value);
 
-    void addKVInt(string key, int value);
+    void addKVInt(string key, uint64_t value);
 
     void addKVBool(string key, bool value);
 
     void addKVAmount(string key, CAmount amountSats);
+
+    void addJsonObject(JsonObject value);
 
     string toJson();
 };

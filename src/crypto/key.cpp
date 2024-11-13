@@ -13,10 +13,10 @@
 
 using namespace std;
 
-Key Key::MakeMasterKey(uint8_t* masterSeed, uint8_t seedLength)
+Key Key::MakeMasterKey(uint8_t* masterSeed, uint8_t seedLength, Keytype keyType)
 {
     const uint8_t hashKey[] = MASTER_HASH_KEY;
-    Key masterKey = Key(masterSeed, hashKey, seedLength, sizeof(hashKey), BIP_44);
+    Key masterKey = Key(masterSeed, hashKey, seedLength, sizeof(hashKey), keyType);
     return masterKey;
 }
 
@@ -33,8 +33,9 @@ Key::Key(const uint8_t* data, const uint8_t* key, const size_t dataLength, const
     memcpy(_parentFingerprint, parentFingerprint, 4);
     memcpy(keyMaterial, data, 32);
     memcpy(&keyMaterial[32], key, 32);
-    memcpy(&keyMaterial[32], key, 32);
+    initializePublicKey();
     buildKeyDescriptor(parentDescriptor, descriptorLength);
+    //debug();
 }
 
 
@@ -111,7 +112,7 @@ void Key::deriveChildKey(const uint32_t index, Key& outKey)
         memcpy(&data[0], compressed_pubkey, COMPRESSED_KEY_LENGTH);
         memcpy(&data[COMPRESSED_KEY_LENGTH], index_bytes, 4);
         CHMAC_SHA512{&keyMaterial[32], 32}.Write(data, 37).Finalize(vout);
-    } else {
+    } else { // For hardened child keys, I need the parent's private key
         memcpy(&data[1], keyMaterial, 32);
         memcpy(&data[COMPRESSED_KEY_LENGTH], index_bytes, 4);
         CHMAC_SHA512{&keyMaterial[32], 32}.Write(data, 37).Finalize(vout);
@@ -128,30 +129,12 @@ void Key::deriveChildKey(const uint32_t index, Key& outKey)
     calculateKeyFingerprint(compressed_pubkey, parent_fingerprint);
 
     Keytype childKeyType = _keyType;
-
-    if (_depth == 0) {
-        switch (index) {
-            case MIN_HARDENED_CHILD_INDEX + BIP_49:
-                childKeyType = BIP_49;
-                break;
-            case MIN_HARDENED_CHILD_INDEX + BIP_84:
-                childKeyType = BIP_84;
-                break;
-            case MIN_HARDENED_CHILD_INDEX + BIP_86:
-                childKeyType = BIP_86;
-                break;
-            default:
-                childKeyType = BIP_44;
-                break;
-        }
-    }
     
     outKey = Key(child_priv_key, child_chaincode, sizeof(child_priv_key), sizeof(child_chaincode), index,\
-                 _depth + 1, parent_fingerprint, childKeyType, false, _descriptor, _descriptorLength);
-    outKey.initializePublicKey();
+                 _depth + 1, parent_fingerprint, _keyType, false, _descriptor, _descriptorLength);
 }
 
-const string Key::exportXprivKey()
+void Key::exportXprivKey(char* serialisedKey, size_t &serialisedLength)
 {                
     uint8_t PREFIX_LENGTH = 13;
     uint8_t version[4] = {0x00};
@@ -183,8 +166,14 @@ const string Key::exportXprivKey()
 
     EncodeBase58(input, 82, xpriv);
 
-    string s(xpriv);
-    return s;
+    size_t i = 0;
+
+    for (i = 0; (i < SERIALIZED_KEY_LENGTH) && (xpriv[i] != '\0'); i++) {
+        serialisedKey[i] = xpriv[i];
+    }
+
+    serialisedKey[i] = '\0';
+    serialisedLength = i + 1;
 }
 
 // Calculates HASH160
@@ -206,7 +195,10 @@ void Key::debug()
     print_string(_parentFingerprint, 4);
     printf("\n keymaterial > ");
     print_string(keyMaterial, 64);
-    printf("\n");
+    printf("\n Descriptor > ");
+    for (size_t i = 0; i < _descriptorLength; i++) {
+        cout << _descriptor[i];
+    }
 
     uint8_t compressed_pubkey[COMPRESSED_KEY_LENGTH] = {0x00};
     size_t len = COMPRESSED_KEY_LENGTH;
@@ -286,12 +278,11 @@ void Key::getVersionCode(uint8_t* versionCode, bool isPrivate)
 {
     if (isPrivate) {
         switch (_keyType) {
-            case BIP_44:
-            case BIP_86: {
-                uint8_t version[4] = VERSION_BIP44_PRIV;
+            case BIP_32: {
+                uint8_t version[4] = VERSION_BIP32_PRIV;
                 memcpy(versionCode, version, 4);
             } break;
-
+            
             case BIP_49: {
                 uint8_t version[4] = VERSION_BIP49_PRIV;
                 memcpy(versionCode, version, 4);
@@ -307,25 +298,18 @@ void Key::getVersionCode(uint8_t* versionCode, bool isPrivate)
         }
     } else {
         switch (_keyType) {
-            case BIP_44:
-            case BIP_49:
-            case BIP_84:
-            case BIP_86: {
-                uint8_t version[4] = VERSION_BIP44_PUB;
+            case BIP_32: {
+                uint8_t version[4] = VERSION_BIP32_PUB;
                 memcpy(versionCode, version, 4);
             } break;
-
-            /*
             case BIP_49: {
                 uint8_t version[4] = VERSION_BIP49_PUB;
                 memcpy(versionCode, version, 4);
             } break;
-
             case BIP_84: {
                 uint8_t version[4] = VERSION_BIP84_PUB;
                 memcpy(versionCode, version, 4);
             } break;
-            */
 
             default:
                 break;
@@ -353,60 +337,64 @@ void Key::exportAddressKeys(Key& addressKey, AddressType addressType)
 
 void Key::buildKeyDescriptor(const char* parentDescriptor, const size_t length)
 {
-    char indexString[10] = {'\0'};
+    const int PARENT_SIGNATURE_SIZE = 8;
+    _descriptor[_descriptorLength++] = '[';
     
-    if (_depth <= 1) {
-        _descriptor[0] = '[';
-        _descriptorLength++;
-
+    if (_depth == 0) {
+        memset(&_descriptor[_descriptorLength++], '0', PARENT_SIGNATURE_SIZE);
+        _descriptorLength += 8;
+    } 
+    else if (_depth == 1) {
         for (size_t i = 0; i < 4; ++i) {
             byteToHex(_parentFingerprint[i], &_descriptor[(i * 2) + 1]);
             _descriptorLength += 2;
         }
     } else {
-        memcpy(&_descriptor[_descriptorLength], parentDescriptor, length);
-        _descriptorLength += length;
+        size_t prefixSize = 0;
+        for (size_t i = MAX_DESCRIPTOR_LENGTH - 1; i >= 0; i--) {
+            if (parentDescriptor[i] == ']') {
+                prefixSize = i;
+                break;
+            }
+        }
+        memcpy(_descriptor, parentDescriptor, prefixSize);
+        _descriptorLength = prefixSize;
     }
 
-    _descriptor[_descriptorLength++] = '/';
+    if (_depth != 0) {
+        _descriptor[_descriptorLength++] = '/';
+    }
 
+    char indexString[10] = {'\0'};
     size_t indexLength = 0;
     uint32_t indexNormalised = 0;
 
     if (_depth > 0) {
-        if (_index >= MIN_HARDENED_CHILD_INDEX) {
-            indexNormalised = _index - MIN_HARDENED_CHILD_INDEX;
-        }
+        indexNormalised = _index >= MIN_HARDENED_CHILD_INDEX ? _index - MIN_HARDENED_CHILD_INDEX : _index;
         uint32ToDecimalString(indexNormalised, indexString, indexLength);
-        memcpy(&_descriptor[_descriptorLength], indexString, indexLength - 1); // Omit the final \0
-        _descriptorLength+=(indexLength - 1);
+        memcpy(&_descriptor[_descriptorLength], indexString, indexLength - 1);
+        _descriptorLength += indexLength - 1;
         if (_index >= MIN_HARDENED_CHILD_INDEX) {
             _descriptor[_descriptorLength++] = 'h';
         }
     }
-}
-
-void Key::exportDescriptor(char* descriptor)
-{
-    assert(_index <= 1);
-    char SUFFIX[] = "/0/*";
-
-    SUFFIX[1] = '0' + (_index & 1);
-
-    memcpy(descriptor, _descriptor, _descriptorLength - 2);
-    descriptor[_descriptorLength - 2] = ']';
-
-    uint8_t index = _descriptorLength - 1;
+    _descriptor[_descriptorLength++] = ']';
 
     size_t keyLength = 0;
-    exportXpubKey(&descriptor[index], keyLength);
-    index += keyLength - 1;
-
-    memcpy(&descriptor[index], SUFFIX, sizeof(SUFFIX));
-    index += sizeof(SUFFIX);
+    exportXpubKey(&_descriptor[_descriptorLength], keyLength);
+    _descriptorLength += keyLength - 1;
 }
 
-void Key::exportAddressDescriptor(Keytype keyType, uint32_t accountNumber, AddressType addressType, char* descriptor)
+void Key::exportDescriptor(char* descriptor, AddressType addressType)
+{
+    char SUFFIX[] = "/0/*";
+    SUFFIX[1] = '0' + (addressType & 1);
+
+    memcpy(descriptor, _descriptor, _descriptorLength);
+    memcpy(&descriptor[_descriptorLength], SUFFIX, sizeof(SUFFIX));
+}
+
+void Key::exportAccountDescriptor(Keytype keyType, uint32_t accountNumber, AddressType addressType, char* descriptor)
 {
     Key purposeKey;
     this->deriveChildKey(MIN_HARDENED_CHILD_INDEX + keyType, purposeKey);
@@ -417,7 +405,15 @@ void Key::exportAddressDescriptor(Keytype keyType, uint32_t accountNumber, Addre
     Key addressGeneratingKey;
     accountKey.deriveChildKey(addressType, addressGeneratingKey);
 
-    addressGeneratingKey.exportDescriptor(descriptor);
+    accountKey.exportDescriptor(descriptor, addressType);
+    
+    /* Debug: generate addresses
+    for (size_t i = 0; i<10;i++) {
+        Key receiveKey;
+        addressGeneratingKey.deriveChildKey(i, receiveKey);
+        cout << endl << "Address " << i << " > " << receiveKey.getAddress() << endl;
+    }
+    */
 }
 
 void Key::getDescriptor(char* descriptor)

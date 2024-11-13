@@ -16,19 +16,19 @@ DEBUG_CFLAGS =
 SUBDIRS := utils crypto input features bitcoin
 
 # Ensure the build directory exists
-$(shell mkdir -p build $(addprefix build/,$(SUBDIRS)))
+$(shell mkdir -p ../build $(addprefix ../build/,$(SUBDIRS)))
 
 # Recursively find all .cpp files
 SRCS := $(wildcard *.cpp $(addsuffix /*.cpp,$(SUBDIRS)))
 
 # Transform source file paths to object file paths in the build directory
-OBJS := $(patsubst %.cpp,build/%.o,$(SRCS))
+OBJS := $(patsubst %.cpp,../build/%.o,$(SRCS))
 
 # Ensure corresponding build subdirectories exist
-$(shell mkdir -p $(addprefix build/,$(SUBDIRS)))
+$(shell mkdir -p $(addprefix ../build/,$(SUBDIRS)))
 
 # Target for object files
-build/%.o: %.cpp
+../build/%.o: %.cpp
 	@mkdir -p $(dir $@)
 	$(CC) -c -o $@ $< $(CFLAGS) $(DEBUG_CFLAGS)
 
@@ -43,5 +43,5 @@ $(TARGET): $(OBJS)
 
 .PHONY: clean
 clean:
-	rm -rf build/
+	rm -rf ../build/
 	rm -rf $(TARGET)

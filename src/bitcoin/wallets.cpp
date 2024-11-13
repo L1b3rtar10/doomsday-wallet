@@ -33,7 +33,7 @@ WalletMgr WalletMgr::Make(string walletName, uint8_t* masterSeed)
 
 void WalletMgr::setMasterSeed(uint8_t *masterSeed)
 {
-  _masterKey = Key::MakeMasterKey(masterSeed, ENTROPY_SIZE);
+  _masterKey = Key::MakeMasterKey(masterSeed, ENTROPY_SIZE, BIP_32);
 }
 
 bool WalletMgr::createSafeWallet(string password, char* wifKey)
@@ -194,42 +194,42 @@ void WalletMgr::generateAccountDescriptors(int accountNumber)
   char descriptor[MAX_DESCRIPTOR_LENGTH] = {'\0'};
   string output;
 
-  _masterKey.exportAddressDescriptor(BIP_44, accountNumber, RECEIVING, descriptor);
+  _masterKey.exportAccountDescriptor(BIP_32, accountNumber, RECEIVING, descriptor);
   output = "pkh(" + string(descriptor) + ")";
   pubkey_descriptors.push_back(output);
   memset(descriptor, '\0', MAX_DESCRIPTOR_LENGTH);
 
-  _masterKey.exportAddressDescriptor(BIP_44, accountNumber, CHANGE, descriptor);
+  _masterKey.exportAccountDescriptor(BIP_32, accountNumber, CHANGE, descriptor);
   output = "pkh(" + string(descriptor) + ")";
   pubkey_descriptors.push_back(output);
   memset(descriptor, '\0', MAX_DESCRIPTOR_LENGTH);
 
-  _masterKey.exportAddressDescriptor(BIP_49, accountNumber, RECEIVING, descriptor);
+  _masterKey.exportAccountDescriptor(BIP_49, accountNumber, RECEIVING, descriptor);
   output = "sh(wpkh(" + string(descriptor) + "))";
   pubkey_descriptors.push_back(output);
   memset(descriptor, '\0', MAX_DESCRIPTOR_LENGTH);
 
-  _masterKey.exportAddressDescriptor(BIP_49, accountNumber, CHANGE, descriptor);
+  _masterKey.exportAccountDescriptor(BIP_49, accountNumber, CHANGE, descriptor);
   output = "sh(wpkh(" + string(descriptor) + "))";
   pubkey_descriptors.push_back(output);
   memset(descriptor, '\0', MAX_DESCRIPTOR_LENGTH);
 
-  _masterKey.exportAddressDescriptor(BIP_84, accountNumber, RECEIVING, descriptor);
+  _masterKey.exportAccountDescriptor(BIP_84, accountNumber, RECEIVING, descriptor);
   output = "wpkh(" + string(descriptor) + ")";
   pubkey_descriptors.push_back(output);
   memset(descriptor, '\0', MAX_DESCRIPTOR_LENGTH);
 
-  _masterKey.exportAddressDescriptor(BIP_84, accountNumber, CHANGE, descriptor);
+  _masterKey.exportAccountDescriptor(BIP_84, accountNumber, CHANGE, descriptor);
   output = "wpkh(" + string(descriptor) + ")";
   pubkey_descriptors.push_back(output);
   memset(descriptor, '\0', MAX_DESCRIPTOR_LENGTH);
 
-  _masterKey.exportAddressDescriptor(BIP_86, accountNumber, RECEIVING, descriptor);
+  _masterKey.exportAccountDescriptor(BIP_86, accountNumber, RECEIVING, descriptor);
   output = "tr(" + string(descriptor) + ")";
   pubkey_descriptors.push_back(output);
   memset(descriptor, '\0', MAX_DESCRIPTOR_LENGTH);
 
-  _masterKey.exportAddressDescriptor(BIP_86, accountNumber, CHANGE, descriptor);
+  _masterKey.exportAccountDescriptor(BIP_86, accountNumber, CHANGE, descriptor);
   output = "tr(" + string(descriptor) + ")";
   pubkey_descriptors.push_back(output);
   memset(descriptor, '\0', MAX_DESCRIPTOR_LENGTH);

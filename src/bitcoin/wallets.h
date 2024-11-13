@@ -49,9 +49,10 @@ private:
     vector<string> pubkey_descriptors;
     vector<string> privkey_descriptors;
     
+    /* Bitcoin Core expects descriptors with keys in BIP32 format (xprv...,xpub....), regardless the purpose of the key */
     WalletMgr(string walletName, uint8_t* masterSeed) { 
         _name = walletName;
-        _masterKey = Key::MakeMasterKey(masterSeed, ENTROPY_SIZE);
+        _masterKey = Key::MakeMasterKey(masterSeed, ENTROPY_SIZE, BIP_32);
     };
 
     string executeForWallet(const char* command);
