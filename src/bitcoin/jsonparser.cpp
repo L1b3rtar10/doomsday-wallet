@@ -16,7 +16,7 @@ string JsonObject::getKeyAt(size_t index) {
 }
 
 bool JsonObject::hasKey(string key) {
-  for (int i = 0; i < keys.size(); i++) {
+  for (size_t i = 0; i < keys.size(); i++) {
     if (key.compare(keys[i]) == 0) {
       return true;
     }
@@ -25,9 +25,10 @@ bool JsonObject::hasKey(string key) {
 }
 
 string JsonObject::getChildAsString(string key) {
-    for (int i = 0; i < keys.size(); i++) {
+    for (size_t i = 0; i < keys.size(); i++) {
       if (key.compare(keys[i]) == 0) {
-        string value = _jsonString.substr(valueIndex[i], valueSize[i]);
+        bool hasQuotes = _jsonString[valueIndex[i]] == '"' && _jsonString[valueIndex[i] + valueSize[i] - 1] == '"';
+        string value = _jsonString.substr(valueIndex[i] + (hasQuotes ? 1 : 0), valueSize[i] - (hasQuotes ? 2 : 0));
         return value;
       }
     }
@@ -35,7 +36,7 @@ string JsonObject::getChildAsString(string key) {
 }
 
 bool JsonObject::getChildAsBool(string key) {
-  for (int i = 0; i < keys.size(); i++) {
+  for (size_t i = 0; i < keys.size(); i++) {
       if (key.compare(keys[i]) == 0) {
         string value = _jsonString.substr(valueIndex[i], valueSize[i]);
         if (value == "true") {
@@ -51,7 +52,7 @@ JsonObject JsonObject::getChildAsJsonObject(string key) {
 }
 
 CAmount JsonObject::getChildAsSatsAmount(string key) {
-  for (int i = 0; i < keys.size(); i++) {
+  for (size_t i = 0; i < keys.size(); i++) {
       if (key.compare(keys[i]) == 0) {
         CAmount amount;
         ParseFixedPoint(_jsonString.substr(valueIndex[i], valueSize[i]), 8, &amount);
@@ -62,10 +63,20 @@ CAmount JsonObject::getChildAsSatsAmount(string key) {
 }
 
 int JsonObject::getChildAsInt(string key) {
-  for (int i = 0; i < keys.size(); i++) {
+  for (size_t i = 0; i < keys.size(); i++) {
       if (key.compare(keys[i]) == 0) {
         string value = _jsonString.substr(valueIndex[i], valueSize[i]);
         return stoi(value);
+      }
+    }
+    return 0;
+}
+
+uint64_t JsonObject::getChildAsBigInt(string key) {
+  for (size_t i = 0; i < keys.size(); i++) {
+      if (key.compare(keys[i]) == 0) {
+        string value = _jsonString.substr(valueIndex[i], valueSize[i]);
+        return stoll(value);
       }
     }
     return 0;
@@ -113,8 +124,8 @@ void JsonObject::addJsonObject(JsonObject value) {
 string JsonObject::toJson() {
   // Generates Json formatted string
   string jsonString("{");
-  for (int i = 0; i < keys.size(); i++) {
 
+  for (size_t i = 0; i < keys.size(); i++) {
     if (types[i] == OBJ) {
       jsonString += values[i];
     } else {
@@ -137,4 +148,5 @@ char JsonObject::setClosingChar(char openChar) {
   } else if (openChar == '"') {
     return '"';
   }
+  return ',';
 }

@@ -194,45 +194,63 @@ void WalletMgr::generateAccountDescriptors(int accountNumber)
   char descriptor[MAX_DESCRIPTOR_LENGTH] = {'\0'};
   string output;
 
-  _masterKey.exportAccountDescriptor(BIP_32, accountNumber, RECEIVING, descriptor);
+  Key addressKey; // not used
+
+  _masterKey.exportAccountDescriptor(BIP_32, accountNumber, RECEIVING, descriptor, addressKey);
   output = "pkh(" + string(descriptor) + ")";
   pubkey_descriptors.push_back(output);
   memset(descriptor, '\0', MAX_DESCRIPTOR_LENGTH);
 
-  _masterKey.exportAccountDescriptor(BIP_32, accountNumber, CHANGE, descriptor);
+  _masterKey.exportAccountDescriptor(BIP_32, accountNumber, CHANGE, descriptor, addressKey);
   output = "pkh(" + string(descriptor) + ")";
   pubkey_descriptors.push_back(output);
   memset(descriptor, '\0', MAX_DESCRIPTOR_LENGTH);
 
-  _masterKey.exportAccountDescriptor(BIP_49, accountNumber, RECEIVING, descriptor);
+  _masterKey.exportAccountDescriptor(BIP_49, accountNumber, RECEIVING, descriptor, addressKey);
   output = "sh(wpkh(" + string(descriptor) + "))";
   pubkey_descriptors.push_back(output);
   memset(descriptor, '\0', MAX_DESCRIPTOR_LENGTH);
 
-  _masterKey.exportAccountDescriptor(BIP_49, accountNumber, CHANGE, descriptor);
+  _masterKey.exportAccountDescriptor(BIP_49, accountNumber, CHANGE, descriptor, addressKey);
   output = "sh(wpkh(" + string(descriptor) + "))";
   pubkey_descriptors.push_back(output);
   memset(descriptor, '\0', MAX_DESCRIPTOR_LENGTH);
 
-  _masterKey.exportAccountDescriptor(BIP_84, accountNumber, RECEIVING, descriptor);
+  _masterKey.exportAccountDescriptor(BIP_84, accountNumber, RECEIVING, descriptor, _receivingAddressKey);
   output = "wpkh(" + string(descriptor) + ")";
   pubkey_descriptors.push_back(output);
   memset(descriptor, '\0', MAX_DESCRIPTOR_LENGTH);
 
-  _masterKey.exportAccountDescriptor(BIP_84, accountNumber, CHANGE, descriptor);
+  _masterKey.exportAccountDescriptor(BIP_84, accountNumber, CHANGE, descriptor, _changeAddressKey);
   output = "wpkh(" + string(descriptor) + ")";
   pubkey_descriptors.push_back(output);
   memset(descriptor, '\0', MAX_DESCRIPTOR_LENGTH);
 
-  _masterKey.exportAccountDescriptor(BIP_86, accountNumber, RECEIVING, descriptor);
+  _masterKey.exportAccountDescriptor(BIP_86, accountNumber, RECEIVING, descriptor, addressKey);
   output = "tr(" + string(descriptor) + ")";
   pubkey_descriptors.push_back(output);
   memset(descriptor, '\0', MAX_DESCRIPTOR_LENGTH);
 
-  _masterKey.exportAccountDescriptor(BIP_86, accountNumber, CHANGE, descriptor);
+  _masterKey.exportAccountDescriptor(BIP_86, accountNumber, CHANGE, descriptor, addressKey);
   output = "tr(" + string(descriptor) + ")";
   pubkey_descriptors.push_back(output);
   memset(descriptor, '\0', MAX_DESCRIPTOR_LENGTH);
+
+  for (size_t i = 0; i < 7; i++) {
+    _masterKey.exportLegacyAccountDescriptor(BIP_LEGACY, i, RECEIVING, descriptor, addressKey);
+    output = "wpkh(" + string(descriptor) + ")";
+    pubkey_descriptors.push_back(output);
+    memset(descriptor, '\0', MAX_DESCRIPTOR_LENGTH);
+  }
+  
+}
+
+void generateBip84ReceivingAddressKey(int accountNumber) {
+
+}
+
+void generateBip84ChangeAddressKey(int accountNumber) {
+
 }
 
 Key WalletMgr::exportMasterPrivKey()
@@ -414,4 +432,18 @@ const string WalletMgr::getMasterFingerprint() {
 
 void WalletMgr::setName(string name) {
   _name = name;
+}
+
+string WalletMgr::getWatchonlyWalletName() {
+  return "watchonly_" + getMasterFingerprint();
+}
+
+string WalletMgr::getP2WKHAddress(AddressType addressType, uint64_t index) {
+  Key addressKey;
+  if (addressType == RECEIVING) {
+    _receivingAddressKey.deriveChildKey(index, addressKey);
+  } else {
+    _changeAddressKey.deriveChildKey(index, addressKey);
+  }
+  return addressKey.getAddress();
 }

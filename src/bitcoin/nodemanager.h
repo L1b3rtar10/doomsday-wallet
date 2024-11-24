@@ -28,6 +28,7 @@ static const char* LIST_UNSPENT = "listunspent";
 static const char* CREATE_RAW_TRANSACTION = "createrawtransaction";
 static const char* DECODE_RAW_TRANSACTION = "decoderawtransaction";
 static const char* FUND_RAW_TRANSACTION = "fundrawtransaction";
+static const char* SEND_RAW_TRANSACTION = "sendrawtransaction";
 static const char* SIGN_RAW_TRANSACTION_WITH_WALLET = "signrawtransactionwithwallet";
 static const char* TEST_MEMPOOL_ACCEPT = "testmempoolaccept";
 static const char* SEND_TO_ADDRESS = "sendtoaddress";
@@ -50,7 +51,7 @@ class NodeManager {
 
         std::thread apiThread;
 
-        string sendAmountToAddress(CAmount amountSats, string address, string changeAddress);
+        string sendAmountToAddress(CAmount amountSats, string address, string changeAddress, string walletFingerprint);
 
         void createWatchonlyWallet(const string walletName);
 
@@ -68,7 +69,7 @@ class NodeManager {
 
         bool backgroundExecute(const char* method, const string params, const string path);
 
-        string internalCreateTransaction(CAmount amountSats, string address, string changeAddress);
+        string internalCreateTransaction(CAmount amountSats, string address, string changeAddress, string watchonlyWalletName);
 
         int calculateFees(const uint8_t txSize, uint8_t nBlocks);
 };

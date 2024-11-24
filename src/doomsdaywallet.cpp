@@ -36,10 +36,14 @@ void createMenu(optional<WalletMgr> wallet) {
     std::cout << "-- 3. List descriptors\n";
     std::cout << "-- 4. Export Lightning node private key\n";
     std::cout << "-- 5. Create watchonly wallet from descriptors\n";
+    std::cout << "-- l. Create watchonly wallet from legacy descriptors\n";
+    std::cout << "-- a. Generate a receiving address (P2WPKH)\n";
+    std::cout << "-- c. Generate a change address (P2WPKH)\n";
     std::cout << "-- 6. List existing wallets on fullnode\n";
     std::cout << "-- 7. List descriptors on fullnode\n";
     std::cout << "-- 8. Get blockchain info\n";
     std::cout << "-- 9. Get wallet info\n";
+    std::cout << "-- f. Estimate fees\n";
     std::cout << "-- t. Legacy transaction\n";
     std::cout << "-- q. Exit\n";
     std::cout << "\nPlease select an option: ";
@@ -165,11 +169,8 @@ int main(int argc, char **argv) {
                     break;
                 case '5': {
                     if (wallet.has_value()) {
-                        string walletName("");
-                        cout << "Insert a name for your wallet > ";
-                        cin >> walletName;
-                        
-                        nodeManager.createWatchonlyWallet(walletName);
+                        string watchonlyWalletName = wallet->getWatchonlyWalletName();
+                        nodeManager.createWatchonlyWallet(watchonlyWalletName);
                         while (nodeManager.operationIsInProgress()) {
                             backgroundShowProgress();                             
                         }
@@ -179,44 +180,72 @@ int main(int argc, char **argv) {
                         if (descriptors.size() == 0) {
                             cout << "You must generate account keys first" << endl;
                             break;
-                        }
-                        nodeManager.importDescriptors(walletName, descriptors);
-                        while (nodeManager.operationIsInProgress()) {
-                            backgroundShowProgress();                             
-                        }
-                        nodeManager.apiThread.join();                        
-                            
+                        } else {
+                            nodeManager.importDescriptors(watchonlyWalletName, descriptors);
+                            while (nodeManager.operationIsInProgress()) {
+                                backgroundShowProgress();                             
+                            }
+                            nodeManager.apiThread.join();
+                            if (JsonObject(nodeManager.apiResponse).getChildAsString("error") == "null") {
+                                cout << endl << "Watchonly wallet created: " << watchonlyWalletName << endl;
+                            }
+                        }                        
                     } else {
                         cout << "Master key must be initialised first.";
                     }
                 }
                 break;
-                case '6':
-                    
+                case 'a':
+                case 'c': {
+                    int index = 0;
+                    int number = 0;
+                    cout << "Insert the 1st address index > ";
+                    cin >> index;
+                    cout << "Insert the number of addresses to generate > ";
+                    cin >> number;
+                    cout.flush();
+                    for (size_t i = index; i < number + index; i++) {
+                        cout << wallet->getP2WKHAddress(choice == 'a'? RECEIVING : CHANGE, i) << endl;
+                    }
+                }
+                break;
+                case '6': {   
                     nodeManager.runApi(LIST_WALLETS, "[]", "", true);
                     
                     while (nodeManager.operationIsInProgress()) {
                         backgroundShowProgress();                             
                     }
-                    nodeManager.apiThread.join();
-                    break;
+                    nodeManager.apiThread.join();       
+                }
+                break;
 
-                case '7':
+                case '7': {
+                    if (wallet.has_value()) {
+                        string watchonlyWalletName = wallet->getWatchonlyWalletName();
 
-                    nodeManager.runApi(LOAD_WALLET, "[\"doomsday_wallet\"]", "", true);
-                    while (nodeManager.operationIsInProgress()) {
-                        backgroundShowProgress();                             
+                        nodeManager.runApi(LOAD_WALLET, "[\"" + watchonlyWalletName + "\"]", "", true);
+                        while (nodeManager.operationIsInProgress()) {
+                            backgroundShowProgress();                             
+                        }
+                        nodeManager.apiThread.join();
+
+                        nodeManager.runApi(LIST_DESCRIPTORS, "[]", string("wallet/") + watchonlyWalletName, true);
+                        while (nodeManager.operationIsInProgress()) {
+                            backgroundShowProgress();                             
+                        }
+                        nodeManager.apiThread.join();
+
+                        JsonObject response(nodeManager.apiResponse);
+                        if (response.getChildAsString("error") == "null") {
+                            JsonObject descriptors = response.getChildAsJsonObject("result").getChildAsJsonObject("descriptors");
+                            for (size_t i = 0; i < descriptors.length(); i++) {
+                                cout << descriptors.getChildAt(i).getChildAsString("desc") << endl;
+                            }
+                        }
+
                     }
-                    nodeManager.apiThread.join();
-                    cout << endl << "La risposta " << nodeManager.apiResponse << endl;
-
-                    nodeManager.runApi(LIST_DESCRIPTORS, "[]", "wallet/doomsday_wallet", true);
-                    while (nodeManager.operationIsInProgress()) {
-                        backgroundShowProgress();                             
-                    }
-                    nodeManager.apiThread.join();
-                    
-                    break;
+                }
+                break;
 
                 case '8':
                     nodeManager.runApi(GET_BLOCKCHAIN_INFO, "[]", "", true);
@@ -229,17 +258,18 @@ int main(int argc, char **argv) {
                     cout << endl << "La risposta " << nodeManager.apiResponse << endl;
                     break;
                 case '9': {
-                    string walletInfoName("");
-                    cout << "Insert the wallet's name > " << endl;
-                    cin >> walletInfoName;
-
-                    nodeManager.runApi(GET_WALLET_INFO, "[]", string("wallet/") + walletInfoName, true);
-                    while (nodeManager.operationIsInProgress()) {
-                        backgroundShowProgress();                             
+                    if (wallet.has_value()) {
+                        string watchonlyWalletName = wallet->getWatchonlyWalletName();
+                        
+                        nodeManager.runApi(GET_WALLET_INFO, "[]", string("wallet/") + watchonlyWalletName, true);
+                        while (nodeManager.operationIsInProgress()) {
+                            backgroundShowProgress();
+                        }
+                        nodeManager.apiThread.join();
+                        
+                        cout << endl << "Wallet info for wallet: " << watchonlyWalletName << endl;
+                        cout << nodeManager.apiResponse << endl;
                     }
-                    nodeManager.apiThread.join();
-                    
-                    cout << endl << "La risposta " << nodeManager.apiResponse << endl;
                     break;
                 }
 
@@ -248,22 +278,40 @@ int main(int argc, char **argv) {
                     cout << "Insert the amount in SATS > ";
                     cin >> transactionAmount;
                     cout.flush();
-
                     string destinationAddress("");
                     cout << "Insert the destination address  > ";
                     cin >> destinationAddress;
                     cout.flush();
+                    string changeAddress("");
+                    cout << "Optional: Insert a change address  > ";
+                    cin >> changeAddress;
+                    cout.flush();
 
-                    nodeManager.sendAmountToAddress(transactionAmount, destinationAddress, "bc1q4xnv2hftsz82qtl4nzsjf3szv7yv3smy3nwme2");
+                    //string walletName = wallet->getWatchonlyWalletName();
+                    string walletName = "watchonly";
+                    
+                    nodeManager.sendAmountToAddress(transactionAmount, destinationAddress, changeAddress, walletName);
                     while(nodeManager.operationIsInProgress()) {
                         backgroundShowProgress();                             
                     }
                     nodeManager.apiThread.join();
                     
-                    JsonObject response = JsonObject(nodeManager.apiResponse);
+                    cout << nodeManager.apiResponse;
 
                     break;
                 }
+                case 'f': {
+                    for (uint8_t i = 1; i <= 12; i++) {
+                        nodeManager.runApi(ESTIMATE_SMART_FEE, "[" + to_string(i) + "]", "", true);
+                        while (nodeManager.operationIsInProgress()) {
+                            backgroundShowProgress();                             
+                        }
+                        nodeManager.apiThread.join();
+                        CAmount fees = JsonObject(nodeManager.apiResponse).getChildAsJsonObject("result").getChildAsSatsAmount("feerate");
+                        cout << endl << "Estimated fees: " << fees << " [SATS/kvB] after " << to_string(i) << " blocks" << endl;
+                    }
+                }
+                break;
             }
             getchar();
             std::cout << "\nPress return to continue k... " << endl;

@@ -273,7 +273,7 @@ void Key::exportXpubKey(char* serialisedKey, size_t &serialisedLength)
 
 /*** Version code should be different, but importdescriptor won't work with zpriv and zpub keys ***/
 /*** This method will return keys in the format xpriv/xpub for BIP84 keys ***/
-/*** Uncomment to have the real BIP84 format ***/
+/* https://electrum.readthedocs.io/en/latest/xpub_version_bytes.html*/
 void Key::getVersionCode(uint8_t* versionCode, bool isPrivate)
 {
     if (isPrivate) {
@@ -394,7 +394,12 @@ void Key::exportDescriptor(char* descriptor, AddressType addressType)
     memcpy(&descriptor[_descriptorLength], SUFFIX, sizeof(SUFFIX));
 }
 
-void Key::exportAccountDescriptor(Keytype keyType, uint32_t accountNumber, AddressType addressType, char* descriptor)
+void Key::exportLegacyDescriptor(char* descriptor)
+{
+    memcpy(descriptor, _descriptor, _descriptorLength);
+}
+
+void Key::exportAccountDescriptor(Keytype keyType, uint32_t accountNumber, AddressType addressType, char* descriptor, Key& addressKey)
 {
     Key purposeKey;
     this->deriveChildKey(MIN_HARDENED_CHILD_INDEX + keyType, purposeKey);
@@ -402,10 +407,29 @@ void Key::exportAccountDescriptor(Keytype keyType, uint32_t accountNumber, Addre
     purposeKey.deriveChildKey(MIN_HARDENED_CHILD_INDEX, coinTypeKey);
     Key accountKey;
     coinTypeKey.deriveChildKey(MIN_HARDENED_CHILD_INDEX + accountNumber, accountKey);
-    Key addressGeneratingKey;
-    accountKey.deriveChildKey(addressType, addressGeneratingKey);
+    accountKey.deriveChildKey(addressType, addressKey);
 
     accountKey.exportDescriptor(descriptor, addressType);
+    
+    /* Debug: generate addresses
+    for (size_t i = 0; i<10;i++) {
+        Key receiveKey;
+        addressGeneratingKey.deriveChildKey(i, receiveKey);
+        cout << endl << "Address " << i << " > " << receiveKey.getAddress() << endl;
+    }
+    */
+}
+
+void Key::exportLegacyAccountDescriptor(Keytype keyType, uint32_t accountNumber, AddressType addressType, char* descriptor, Key& addressKey)
+{
+    Key purposeKey;
+    this->deriveChildKey(MIN_HARDENED_CHILD_INDEX, purposeKey);
+    Key coinTypeKey;
+    purposeKey.deriveChildKey(MIN_HARDENED_CHILD_INDEX, coinTypeKey);
+    Key addressGeneratorKey;
+    coinTypeKey.deriveChildKey(MIN_HARDENED_CHILD_INDEX + accountNumber, addressGeneratorKey);
+
+    addressGeneratorKey.exportLegacyDescriptor(descriptor);
     
     /* Debug: generate addresses
     for (size_t i = 0; i<10;i++) {

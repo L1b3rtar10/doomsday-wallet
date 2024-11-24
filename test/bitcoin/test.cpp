@@ -13,7 +13,7 @@
 using namespace boost::unit_test;
 
 BOOST_AUTO_TEST_SUITE( Json)
-/*
+
 BOOST_AUTO_TEST_CASE( testParseDecimalValue )
 {
     CAmount amount;
@@ -85,9 +85,11 @@ BOOST_AUTO_TEST_CASE( getDescriptorInfo )
     string descriptor("pkh([de46b9fe/44h/0h/0h]xpub6EynTVQkEHEbeo8PkuQyNC85ZJLK2xMNnzMf3ukhMuBznaWxn8mhWD98Ann7Z17tXhLYNU25otLq7DMqHGZa6vXVqznb9PvaA3TabCVVBn7/0/*)");
 
     nodeManager.runApi(GET_DESCRIPTOR_INFO, "[\"" + descriptor + "\"]", "", false);
+    string test = JsonObject(nodeManager.apiResponse).getChildAsJsonObject("result").getChildAsString("checksum");
     BOOST_CHECK(JsonObject(nodeManager.apiResponse).getChildAsJsonObject("result").getChildAsString("checksum") == "5n89newv");
-}*/
+}
 
+/*
 BOOST_AUTO_TEST_CASE( importDescriptor )
 {
     NodeManager nodeManager = NodeManager();
@@ -108,6 +110,23 @@ BOOST_AUTO_TEST_CASE( importDescriptor )
     cout << endl << nodeManager.apiResponse << endl;
 
     BOOST_CHECK(true == true);
+}
+*/
+
+BOOST_AUTO_TEST_CASE( listDescriptors )
+{
+    string response = "{\"result\":{\"wallet_name\":\"watchonly_de46b9fe\",\"descriptors\":[{\"desc\":\"wpkh([de46b9fe/84'/0'/0']xpub6DSqBrSVienZ2wGTUQMCfy1kjKTcnR9QkBkDafsaz3nt8bVFwmfAxs36gaXNeCwGAN35rWgcq1muZqqysJZGkxEowo43k8Q6BAuhoXechyX/1/*)#67kfpc36\",\"timestamp\":1731767401998,\"active\":false,\"range\":[0,999],\"next\":0},{\"desc\":\"wpkh([de46b9fe/84'/0'/0']xpub6DSqBrSVienZ2wGTUQMCfy1kjKTcnR9QkBkDafsaz3nt8bVFwmfAxs36gaXNeCwGAN35rWgcq1muZqqysJZGkxEowo43k8Q6BAuhoXechyX/0/*)#t2ngudpz\",\"timestamp\":1731767401998,\"active\":false,\"range\":[0,999],\"next\":0},{\"desc\":\"tr([de46b9fe/86'/0'/0']xpub6CWtujLTt59tJsk8FxLj36J5tCiLSf1pP7gc426nGoNchS9rXapMxHnTcTG1SoZweNAjSPHfNXNpXQ82od8xP1FEG3Pq2CjcmpGXdHDER2q/0/*)#uyfwhc74\",\"timestamp\":1731767401998,\"active\":false,\"range\":[0,999],\"next\":0}]},\"error\":null,\"id\":\"curltest\"}";
+
+    JsonObject jsonResponse(response);
+
+    JsonObject result = jsonResponse.getChildAsJsonObject("result");
+
+    cout << endl << endl;
+    JsonObject descriptors = result.getChildAsJsonObject("descriptors");
+
+    JsonObject desc0 = descriptors.getChildAt(0);
+
+    BOOST_CHECK(1731767401998 == desc0.getChildAsBigInt("timestamp"));
 }
 
 BOOST_AUTO_TEST_SUITE_END()

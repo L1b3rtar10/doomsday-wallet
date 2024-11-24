@@ -12,7 +12,7 @@
 
 using namespace std;
 
-typedef enum JsonType {
+enum JsonType {
     STRING = 0,
     NUMBER = 1,
     BOOL = 2,
@@ -26,8 +26,8 @@ private:
     vector<string> keys;
     vector<string> values;
     vector<JsonType> types;
-    vector<int> valueIndex;
-    vector<int> valueSize;
+    vector<size_t> valueIndex;
+    vector<size_t> valueSize;
 
     char setClosingChar(char openChar);
 
@@ -48,58 +48,65 @@ public:
         _jsonString = jsonString;
         
         bool openKey = false;
-        bool isLeaf = false;
+        bool openValue = false;
         int keyStart = 0;
         int valueStart = 0;
         uint8_t depth = 0;
         char closingChar = '\0';
+        char openChar = '\0';
 
         if (isArray()) {
-            for (int i = 0; i < _jsonString.length(); i++) {
+//          cout << "Is array " << _jsonString.length() << endl;
+            for (size_t i = 0; i < _jsonString.length(); i++) {
+//              cout << _jsonString[i] << " depth > " << to_string(depth) << endl;
                 if (_jsonString[i] == '{') {
+//                  cout << "Open" << endl;
                     depth += 1; 
                     if (depth == 1) {
                         valueStart = i;
                         valueIndex.push_back(valueStart);
                     }
                 } else if (_jsonString[i] == '}') {
+//                  cout << "Close" << endl;
                     depth -= 1;
                 } else if ((_jsonString[i] == ',' || (_jsonString[i] == ']')) && (depth == 0)) {
                     valueSize.push_back(i - valueStart);
                 }
             }
         } else {
-            for (int i = 0; i < _jsonString.length(); i++) {
-                if (_jsonString[i] == '"' && !openKey && depth == 0 && !isLeaf) {
+//          cout << _jsonString.length() << endl;
+            for (size_t i = 0; i < _jsonString.length(); i++) {
+//              cout << _jsonString[i] << " depth > " << to_string(depth) << endl;
+                if (_jsonString[i] == '"' && !openKey && !openValue && depth == 0) {
                     keyStart = i + 1;
                     openKey = true;
-                } else if (_jsonString[i] == '"' && openKey && !isLeaf) {
+//                  cout << "openKey" << endl;
+                } else if (_jsonString[i] == '"' && openKey) {
                     openKey = false;
                     keys.push_back(_jsonString.substr(keyStart, i - keyStart));
-                } else if (_jsonString[i] == closingChar) {
-                    if (depth == 1) {
-                        depth -= 1;
-                        valueSize.push_back(i + 1 - valueStart);
-                    } else if (depth == 0) {
-                        valueSize.push_back(i - valueStart);
-                    } else {
-                        depth -= 1;
+//                  cout << "closeKey > " << keys[keys.size() - 1] << endl;
+                } else if ((_jsonString[i] == closingChar) && (i != valueIndex[valueIndex.size() - 1])) {
+                    depth -= 1;
+//                  cout << "depth - 1" << endl;
+                    if (depth == 0) {
+                        closingChar = '\0';
                     }
-                    closingChar = '\0';
-                } else if (_jsonString[i] == ':') {
-                    if ((_jsonString[i + 1] == '[' || _jsonString[i + 1] == '{') && depth == 0) {
-                        depth += 1;
-                        valueStart = i + 1;
-                        valueIndex.push_back(valueStart);
-                        closingChar = setClosingChar(_jsonString[i + 1]);
-                    } else if (depth == 0 && closingChar == '\0') {
-                        isLeaf = true;
-                        valueStart = i + (_jsonString[i + 1] == '"' ? 2 : 1);
-                        valueIndex.push_back(valueStart);
+                } else if (_jsonString[i] == ':' && depth == 0) {
+                    valueStart = i + 1;
+                    openValue = true;
+                    valueIndex.push_back(valueStart);
+                    if (_jsonString[valueStart] == '{' || _jsonString[valueStart] == '[' || _jsonString[valueStart] == '"') {
+                        openChar = _jsonString[valueStart];
+                        closingChar = setClosingChar(_jsonString[valueStart]);
                     }
-                } else if ((_jsonString[i] == ',' || _jsonString[i] == '}') && isLeaf) {
-                    valueSize.push_back(i - (_jsonString[i - 1] == '"' ? 1 : 0) - valueStart);
-                    isLeaf = false;
+//                  cout << "openValue" << endl;
+                } else if ((_jsonString[i] == ',' || _jsonString[i] == closingChar || _jsonString[i] == '}') && depth == 0 && openValue && (i != valueIndex[valueIndex.size() - 1])) {
+                    valueSize.push_back(i - valueStart);
+                    openValue = false;
+//                  cout << "new value " << _jsonString.substr(valueIndex[valueIndex.size()-1], valueSize[valueSize.size()-1]) << endl;
+                } else if (_jsonString[i] == openChar) {
+                    depth += 1;
+//                  cout << "depth + 1, same open char > " << openChar << endl;
                 }
             }
         }
@@ -118,6 +125,8 @@ public:
     CAmount getChildAsSatsAmount(string key);
 
     int getChildAsInt(string key);
+
+    uint64_t getChildAsBigInt(string key);
 
     bool getChildAsBool(string key);
 

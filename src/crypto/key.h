@@ -31,6 +31,7 @@
 #define FINGERPRINT_LENGTH 8
 
 enum Keytype {
+    BIP_LEGACY = 0,
     BIP_32 = 32,
     BIP_44 = 44,
     BIP_49 = 49,
@@ -122,7 +123,11 @@ class Key {
 
         void exportDescriptor(char* descriptor, AddressType addressType);
 
-        void exportAccountDescriptor(Keytype keyType, uint32_t accountNumber, AddressType addressType, char* descriptor);
+        void exportLegacyDescriptor(char* descriptor);
+
+        void exportAccountDescriptor(Keytype keyType, uint32_t accountNumber, AddressType addressType, char* descriptor, Key& addressKey);
+
+        void exportLegacyAccountDescriptor(Keytype keyType, uint32_t accountNumber, AddressType addressType, char* descriptor, Key& addressKey);
 
         void erase();
 

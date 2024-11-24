@@ -97,7 +97,7 @@ bool NodeManager::backgroundExecute(const char* method, const string params, con
         curl_easy_cleanup(curl);
         curl_slist_free_all(headers);
 
-        // cout << "Response here " << endl << readBuffer << endl;
+//      cout << "Response here " << endl << readBuffer << endl;
 
         apiResponse = readBuffer;
         
@@ -136,9 +136,11 @@ bool NodeManager::operationIsInProgress() const {
     return _operationInProgress.load() && apiThread.joinable();
 }
 
-string NodeManager::internalCreateTransaction(CAmount amountSats, string address, string changeAddress)
+string NodeManager::internalCreateTransaction(CAmount amountSats, string address, string changeAddress, string watchonlyWalletName)
 {
-  if (!runApi(LIST_UNSPENT, "[]", string("wallet/watchonly"), false)) {
+  string watchonlyWalletUriPath = string("wallet/") + watchonlyWalletName;
+  
+  if (!runApi(LIST_UNSPENT, "[]", watchonlyWalletUriPath, false)) {
     return "";
   }
 
@@ -153,7 +155,7 @@ string NodeManager::internalCreateTransaction(CAmount amountSats, string address
     JsonObject input;
     JsonObject tx = result.getChildAt(i);
     CAmount txAmount = tx.getChildAsSatsAmount("amount");
-    cout << endl << txAmount;
+//  cout << endl << txAmount;
     usedSats += txAmount;
     input.addKVString("txid", tx.getChildAsString("txid"));
     input.addKVInt("vout", tx.getChildAsInt("vout"));
@@ -179,11 +181,13 @@ string NodeManager::internalCreateTransaction(CAmount amountSats, string address
   JsonObject output;
   output.addKVAmount(address, amountSats);
 
+  //TODO: calculate change address from watchonly descriptor
+
   // relayFee must met the minimum amount, in order for tx to be accepted
   // TODO: Loop to find minimum fee
   //CAmount relayFee = calculateFees();
   CAmount relayFee = i * 68 + 2 * 34; // 68 bytes is the size of a P2WPKH input, 34 bytes of an output
-  output.addKVAmount(changeAddress, usedSats - amountSats - relayFee);
+  output.addKVAmount(changeAddress, usedSats - amountSats - 1200);
   string outputs = output.toJson();
   //cout << "\nOutputs are > " << outputs << endl;
 
@@ -191,7 +195,7 @@ string NodeManager::internalCreateTransaction(CAmount amountSats, string address
 
   string escaped = escapeQuotes(parameters);
 
-  if (!runApi(CREATE_RAW_TRANSACTION, string("[").append(parameters).append("]"), string("wallet/watchonly"), false)) {
+  if (!runApi(CREATE_RAW_TRANSACTION, string("[").append(parameters).append("]"), watchonlyWalletUriPath, false)) {
     return "";
   }
 
@@ -199,11 +203,18 @@ string NodeManager::internalCreateTransaction(CAmount amountSats, string address
 
   string rawTx = createTransactionResponse.getChildAsString("result");
 
-  if (!runApi(DECODE_RAW_TRANSACTION, string("[\"").append(rawTx).append("\"]"), string("wallet/watchonly"), false)) {
+  if (!runApi(DECODE_RAW_TRANSACTION, string("[\"").append(rawTx).append("\"]"), watchonlyWalletUriPath, false)) {
     return "";
   }
 
-  runApi(LOAD_WALLET, "[\"safe\"]", "", false);
+  cout << endl << "Using " << to_string(i) << " UTXOs, change amount is " << usedSats - amountSats - relayFee << " fees > " << relayFee << endl << endl;
+
+  /* 
+  TODO: replace with signrawtransactionwithkey to avoid creating a safe wallet https://bitcoincore.org/en/doc/26.0.0/rpc/rawtransactions/signrawtransactionwithkey/
+  */
+  string safeWalletName = "safe";
+  string safeWalletUriPath = "wallet/" + safeWalletName;
+  runApi(LOAD_WALLET, "[\"" + safeWalletName + "\"]", "", false);
   string error = JsonObject(apiResponse).getChildAsString("error");
   if (error != "null") {
     int code = JsonObject(error).getChildAsInt("code");
@@ -211,18 +222,20 @@ string NodeManager::internalCreateTransaction(CAmount amountSats, string address
         return "Error loading wallet";
     }
   }
+  error = "";
+
+  string walletPassword = "xxxx";
   
-  if (!runApi(WALLET_PASSPHRASE, "[\"lara\", 60]", "wallet/safe", false)) {
+  if (!runApi(WALLET_PASSPHRASE, "[\"" + walletPassword + "\", 60]", safeWalletUriPath, false)) {
     return "";
   }
-  if (!runApi(SIGN_RAW_TRANSACTION_WITH_WALLET, "[\"" + rawTx + "\"]", "wallet/safe", false)) {
+  if (!runApi(SIGN_RAW_TRANSACTION_WITH_WALLET, "[\"" + rawTx + "\"]", safeWalletUriPath, false)) {
     return "";
-  }
+  }  
 
   JsonObject signResponse = JsonObject(apiResponse).getChildAsJsonObject("result");
   bool complete = signResponse.getChildAsBool("complete");
   if (!complete) {
-    // TODO: Fix Json parsing to show error
     cout << "Sign error: " << signResponse.getChildAsString("errors");
     return "";
   }
@@ -246,16 +259,38 @@ string NodeManager::internalCreateTransaction(CAmount amountSats, string address
 
   cout << endl;
   cout << "Transaction Valid! Check the content before confirmation: " << endl;
-  cout << "\nCalculated fees > " << relayFee << "sats" << endl;
   cout << decodedSignedTx << endl;
+
+  CAmount totalFees = mempoolAcceptResponse.getChildAsJsonObject("result").getChildAt(0).getChildAsJsonObject("fees").getChildAsSatsAmount("base");
+  string utxoId = mempoolAcceptResponse.getChildAsJsonObject("result").getChildAt(0).getChildAsString("txid");
+  cout << endl << "\nCalculated fees > " << totalFees << "sats" << " transaction ID > " << utxoId << endl;
+
+  cout << endl << "Press Y to proceed" << endl;
+  char choice = '\0';
+  cin >> choice;
+
+  if (choice == 'y' || choice == 'Y') {
+    // send tx
+    cout << "Sending!!!" << endl;
+    if (!runApi(SEND_RAW_TRANSACTION, string("[\"") + signedTx + "\"]", "", false)) {
+      return "";
+    }
+    cout << apiResponse;
+    error = JsonObject(apiResponse).getChildAsString("error");
+    if (error == "null") {
+      cout << "Transaction " << utxoId << " broadcasted successfully!" << endl;
+      // TODO: Monitor utxo for confirmations
+    }
+  }
+
   _operationInProgress.store(false);
   return "";
 }
 
-string NodeManager::sendAmountToAddress(CAmount amountSats, string address, string changeAddress) {
+string NodeManager::sendAmountToAddress(CAmount amountSats, string address, string changeAddress, string watchonlyWallet) {
     apiResponse.clear();
     _operationInProgress.store(true);
-    apiThread = std::thread(&NodeManager::internalCreateTransaction, this, amountSats, address, changeAddress);
+    apiThread = std::thread(&NodeManager::internalCreateTransaction, this, amountSats, address, changeAddress, watchonlyWallet);
     return "";
 }
 
@@ -304,7 +339,7 @@ void NodeManager::internalImportDescriptors(const string walletName, vector<stri
         if(descriptorInfo.getChildAsString("error") == "null") {
             string descriptor = descriptorInfo.getChildAsJsonObject("result").getChildAsString("descriptor");
             descriptorData.addKVString("desc", descriptor);
-            descriptorData.addKVInt("timestamp", nowMillis);
+            //descriptorData.addKVInt("timestamp", nowMillis);
             descriptorData.addKVString("timestamp", "now");
             importDescriptorsList += descriptorData.toJson();
             if (++index != descriptors.size()) {

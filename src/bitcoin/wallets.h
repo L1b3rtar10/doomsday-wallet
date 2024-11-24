@@ -45,6 +45,8 @@ private:
     string _name;
 
     Key _masterKey;
+    Key _receivingAddressKey;
+    Key _changeAddressKey;
 
     vector<string> pubkey_descriptors;
     vector<string> privkey_descriptors;
@@ -130,6 +132,10 @@ public:
     const string getMasterFingerprint();
 
     void setName(string name);
+
+    string getWatchonlyWalletName();
+
+    string getP2WKHAddress(AddressType addressType, uint64_t index);
 };
 
 #endif

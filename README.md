@@ -83,7 +83,7 @@ The project uses Docker with a minimal gcc image. Once built, we need to build a
 
 - Run the image:
 
-    `docker run -it --network host --rm  --mount type=bind,source=${PWD},target=/doomsdaywallet doomsday-img`
+    `docker run -it --network host --rm  --mount type=bind,source=${PWD},target=/doomsdaywallet -e LD_LIBRARY_PATH=/usr/local/lib/:$LD_LIBRARY_PATH doomsday-img`
 
 - Build and install secp256k1:
 

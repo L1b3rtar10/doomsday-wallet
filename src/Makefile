@@ -4,10 +4,10 @@ CC = g++
 SUBMODULE_INCLUDE = $(CURDIR)/../secp256k1/include
 export SUBMODULE_INCLUDE
 
-LDFLAGS = -lsecp256k1 -lstdc++ -lssl -lcrypto -lm -lcurl
+LDFLAGS = -lsecp256k1 -lstdc++ -lcrypto -lm -lcurl -L${SSL_PATH}/lib -L$(CURDIR)/../secp256k1/lib
 
 # Common flags
-CFLAGS = -Wall -Wextra -std=c++17 -I$(SUBMODULE_INCLUDE)
+CFLAGS = -Wall -Wextra -std=c++17 -I$(SUBMODULE_INCLUDE) -I${SSL_PATH}/include
 
 # Debug flags
 DEBUG_CFLAGS =
@@ -45,3 +45,8 @@ $(TARGET): $(OBJS)
 clean:
 	rm -rf ../build/
 	rm -rf $(TARGET)
+
+deploy:
+	make clean
+	tar -czvf doomsdayDeploy.tar.gz .
+	scp -P1985 doomsdayDeploy.tar.gz iceman@192.168.1.200:~
